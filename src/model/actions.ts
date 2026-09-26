@@ -1,4 +1,4 @@
-import type { Document, Highlight, Preset, PresetStyle, State, Window } from './types'
+import type { Document, Highlight, Layout, Preset, PresetStyle, State, Window } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
 
@@ -119,20 +119,7 @@ export function createDocument(
     createdAt: doc.createdAt ?? new Date().toISOString(),
     ...(doc.title?.trim() ? { title: doc.title.trim() } : {}),
   }
-  const window: Window = {
-    id: placement.id ?? newId('win'),
-    documentId: document.id,
-    x: placement.x,
-    y: placement.y,
-    width: placement.width,
-    height: placement.height,
-    z: layout.windows.reduce((max, w) => Math.max(max, w.z), 0) + 1,
-  }
-  return {
-    ...state,
-    documents: [...state.documents, document],
-    layouts: state.layouts.map((l) => (l.id === layoutId ? { ...l, windows: [...l.windows, window] } : l)),
-  }
+  return openWindow({ ...state, documents: [...state.documents, document] }, layoutId, document.id, placement)
 }
 
 /**
@@ -210,4 +197,71 @@ export function deletePreset(state: State, id: string): State {
 /** The other preset already using `shortcut`, if any. */
 export function shortcutConflict(presets: Preset[], shortcut: string, excludeId?: string): Preset | undefined {
   return presets.find((p) => p.id !== excludeId && p.shortcut !== undefined && p.shortcut === shortcut)
+}
+
+// ---- Windows -------------------------------------------------------------
+
+function mapWindow(state: State, windowId: string, fn: (w: Window, layout: Layout) => Window): State {
+  return {
+    ...state,
+    layouts: state.layouts.map((layout) => ({
+      ...layout,
+      windows: layout.windows.map((w) => (w.id === windowId ? fn(w, layout) : w)),
+    })),
+  }
+}
+
+function hasWindow(state: State, windowId: string): boolean {
+  return state.layouts.some((l) => l.windows.some((w) => w.id === windowId))
+}
+
+export function moveWindow(state: State, windowId: string, pos: { x: number; y: number }): State {
+  if (!hasWindow(state, windowId)) return state
+  return mapWindow(state, windowId, (w) => ({ ...w, x: pos.x, y: pos.y }))
+}
+
+export function resizeWindow(state: State, windowId: string, size: { width: number; height: number }): State {
+  if (!hasWindow(state, windowId) || size.width <= 0 || size.height <= 0) return state
+  return mapWindow(state, windowId, (w) => ({ ...w, width: size.width, height: size.height }))
+}
+
+/** Give the window the highest z in its layout. No change if it is already on top. */
+export function bringToFront(state: State, windowId: string): State {
+  const layout = state.layouts.find((l) => l.windows.some((w) => w.id === windowId))
+  if (!layout) return state
+  const top = Math.max(...layout.windows.map((w) => w.z))
+  const win = layout.windows.find((w) => w.id === windowId)!
+  if (win.z === top && layout.windows.filter((w) => w.z === top).length === 1) return state
+  return mapWindow(state, windowId, (w) => ({ ...w, z: top + 1 }))
+}
+
+/** Remove a window. The document and its highlights are untouched. */
+export function closeWindow(state: State, windowId: string): State {
+  if (!hasWindow(state, windowId)) return state
+  return {
+    ...state,
+    layouts: state.layouts.map((layout) => ({
+      ...layout,
+      windows: layout.windows.filter((w) => w.id !== windowId),
+    })),
+  }
+}
+
+/** Open a new window showing an existing document, above the others in the layout. */
+export function openWindow(state: State, layoutId: string, documentId: string, placement: WindowPlacement): State {
+  const layout = state.layouts.find((l) => l.id === layoutId)
+  if (!layout || !state.documents.some((d) => d.id === documentId)) return state
+  const window: Window = {
+    id: placement.id ?? newId('win'),
+    documentId,
+    x: placement.x,
+    y: placement.y,
+    width: placement.width,
+    height: placement.height,
+    z: layout.windows.reduce((max, w) => Math.max(max, w.z), 0) + 1,
+  }
+  return {
+    ...state,
+    layouts: state.layouts.map((l) => (l.id === layoutId ? { ...l, windows: [...l.windows, window] } : l)),
+  }
 }

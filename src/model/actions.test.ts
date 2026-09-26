@@ -2,11 +2,16 @@ import { describe, expect, test } from 'vitest'
 import {
   addHighlight,
   addPreset,
+  bringToFront,
+  closeWindow,
   createDocument,
   deletePreset,
   editDocument,
+  moveWindow,
   nextWindowPlacement,
+  openWindow,
   presetForShortcut,
+  resizeWindow,
   shortcutConflict,
   updatePreset,
 } from './actions'
@@ -201,5 +206,48 @@ describe('presets', () => {
     expect(shortcutConflict(base.presets, '1')?.id).toBe('p1')
     expect(shortcutConflict(base.presets, '1', 'p1')).toBeUndefined()
     expect(shortcutConflict(base.presets, 'z')).toBeUndefined()
+  })
+})
+
+describe('window management', () => {
+  const w = (id: string, z: number) => ({ id, documentId: 'doc', x: 0, y: 0, width: 100, height: 80, z })
+  const withWindows: State = {
+    ...base,
+    documents: [{ id: 'doc', text: 'hello', createdAt: 'c' }],
+    layouts: [{ id: 'L', name: 'L', windows: [w('a', 1), w('b', 2), w('c', 3)] }],
+  }
+  const windows = (s: State) => s.layouts[0].windows
+
+  test('moveWindow updates position only', () => {
+    const next = moveWindow(withWindows, 'a', { x: 10, y: -5 })
+    expect(windows(next)[0]).toEqual({ ...w('a', 1), x: 10, y: -5 })
+    expect(windows(next).slice(1)).toEqual(windows(withWindows).slice(1))
+    expect(moveWindow(withWindows, 'nope', { x: 1, y: 1 })).toBe(withWindows)
+  })
+
+  test('resizeWindow updates size and rejects non-positive sizes', () => {
+    expect(windows(resizeWindow(withWindows, 'b', { width: 300, height: 200 }))[1]).toMatchObject({ width: 300, height: 200 })
+    expect(resizeWindow(withWindows, 'b', { width: 0, height: 200 })).toBe(withWindows)
+  })
+
+  test('bringToFront raises z above all others, and is a no-op when already on top', () => {
+    const next = bringToFront(withWindows, 'a')
+    expect(windows(next).map((x) => x.z)).toEqual([4, 2, 3])
+    expect(bringToFront(withWindows, 'c')).toBe(withWindows)
+    expect(bringToFront(withWindows, 'nope')).toBe(withWindows)
+  })
+
+  test('closeWindow removes only that window and keeps the document', () => {
+    const next = closeWindow(withWindows, 'b')
+    expect(windows(next).map((x) => x.id)).toEqual(['a', 'c'])
+    expect(next.documents).toBe(withWindows.documents)
+    expect(closeWindow(withWindows, 'nope')).toBe(withWindows)
+  })
+
+  test('openWindow adds a window for an existing document on top', () => {
+    const next = openWindow(withWindows, 'L', 'doc', { x: 1, y: 2, width: 50, height: 40, id: 'd' })
+    expect(windows(next).at(-1)).toEqual({ id: 'd', documentId: 'doc', x: 1, y: 2, width: 50, height: 40, z: 4 })
+    expect(openWindow(withWindows, 'L', 'missing', { x: 1, y: 2, width: 50, height: 40 })).toBe(withWindows)
+    expect(openWindow(withWindows, 'nope', 'doc', { x: 1, y: 2, width: 50, height: 40 })).toBe(withWindows)
   })
 })

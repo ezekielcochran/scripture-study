@@ -49,8 +49,15 @@ describe('validateState', () => {
   test('accepts optional fields when present and well-typed', () => {
     const s = {
       ...seedState,
-      highlights: [{ ...seedState.highlights[0], note: 'n' }],
-      layouts: [{ id: 'l', name: 'L', windows: [{ ...seedState.layouts[0].windows[0], range: { start: 0, end: 3 } }] }],
+      documents: [{ id: 'd', title: 't', text: 'abc', createdAt: 'c' }],
+      highlights: [{ id: 'h', documentId: 'd', start: 0, end: 1, presetId: 'p', note: 'n' }],
+      layouts: [
+        {
+          id: 'l',
+          name: 'L',
+          windows: [{ id: 'w', documentId: 'd', range: { start: 0, end: 3 }, x: 0, y: 0, width: 1, height: 1, z: 0 }],
+        },
+      ],
     }
     expect(validateState(s)).toBeNull()
   })

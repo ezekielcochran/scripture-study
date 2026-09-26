@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
-import { Panel } from '@xyflow/react'
+import { Panel, useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
+import { nextWindowPlacement, openWindow } from '../model/actions'
 import { downloadStateFile, readStateFile } from '../storage'
 import { NewDocumentDialog } from './NewDocumentDialog'
 import { PresetEditor } from './PresetEditor'
@@ -12,6 +13,15 @@ export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [open, setOpen] = useState<Open>(null)
+  const documents = useStore((s) => s.state.documents)
+  const { screenToFlowPosition } = useReactFlow()
+
+  function openDocument(documentId: string) {
+    const { state, update } = useStore.getState()
+    const layout = state.layouts[0]
+    const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+    update((s) => openWindow(s, layout.id, documentId, nextWindowPlacement(layout.windows, center)))
+  }
 
   function onExport() {
     downloadStateFile(useStore.getState().state)
@@ -38,6 +48,21 @@ export function Toolbar() {
         <button type="button" className={button} onClick={() => setOpen('document')}>
           New document
         </button>
+        {/* A native select keeps this keyboard-accessible with no extra code. Value is
+            reset to '' so the same document can be opened again. */}
+        <select
+          className={button}
+          value=""
+          disabled={documents.length === 0}
+          onChange={(e) => e.target.value && openDocument(e.target.value)}
+        >
+          <option value="">Open document…</option>
+          {documents.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.title ?? 'Untitled'}
+            </option>
+          ))}
+        </select>
         <button type="button" className={button} onClick={() => setOpen('presets')}>
           Presets
         </button>

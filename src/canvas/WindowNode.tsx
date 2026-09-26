@@ -1,12 +1,12 @@
 import { useState, type CSSProperties } from 'react'
-import type { NodeProps } from '@xyflow/react'
+import { NodeResizer, type NodeProps } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { flattenSegments } from '../lib/segments'
 import { styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { editDocument } from '../model/actions'
+import { closeWindow, editDocument } from '../model/actions'
 import type { PresetStyle } from '../model/types'
-import type { WindowNode as WindowNodeType } from '../lib/layout'
+import { DRAG_HANDLE_CLASS, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 
 function toCss(s: PresetStyle): CSSProperties {
@@ -19,7 +19,8 @@ function toCss(s: PresetStyle): CSSProperties {
   }
 }
 
-const textClasses = 'nodrag nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
+const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
+const headerButton = 'rounded px-1.5 py-0.5 hover:bg-gray-200'
 
 export function WindowNode({ data }: NodeProps<WindowNodeType>) {
   // Selector-style subscription: the node re-renders only when the State object changes.
@@ -43,16 +44,31 @@ export function WindowNode({ data }: NodeProps<WindowNodeType>) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded border border-gray-300 bg-white shadow">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600">
-        <span className="font-medium">{doc.title ?? 'Untitled'}</span>
-        <button
-          type="button"
-          className="nodrag rounded px-1.5 py-0.5 hover:bg-gray-200"
-          onClick={() => setEditing((e) => !e)}
-        >
-          {editing ? 'Done' : 'Edit'}
-        </button>
+    // `group` lets the resize handles appear only while hovering the window.
+    <div className="group flex h-full flex-col overflow-hidden rounded border border-gray-300 bg-white shadow">
+      <NodeResizer
+        minWidth={200}
+        minHeight={120}
+        lineClassName="!border-transparent"
+        handleClassName="!h-2.5 !w-2.5 !rounded-sm !border-gray-400 !bg-white opacity-0 group-hover:opacity-100"
+      />
+      <div
+        className={`${DRAG_HANDLE_CLASS} flex cursor-move items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600`}
+      >
+        <span className="truncate font-medium">{doc.title ?? 'Untitled'}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          <button type="button" className={headerButton} onClick={() => setEditing((e) => !e)}>
+            {editing ? 'Done' : 'Edit'}
+          </button>
+          <button
+            type="button"
+            className={headerButton}
+            title="Close window"
+            onClick={() => update((s) => closeWindow(s, win.id))}
+          >
+            ×
+          </button>
+        </span>
       </div>
       {editing ? (
         <textarea
@@ -62,8 +78,8 @@ export function WindowNode({ data }: NodeProps<WindowNodeType>) {
           autoFocus
         />
       ) : (
-        // nodrag/nowheel: React Flow class names that stop node dragging and canvas zooming
-        // inside this element, so the mouse can select text and scroll it instead.
+        // nowheel: React Flow class name that stops canvas zooming inside this element so it
+        // can scroll instead. Only the header drags, so text selection works here.
         <div
           {...{ [WINDOW_TEXT_ATTR]: win.id }}
           className={`${textClasses} cursor-text select-text overflow-auto`}
