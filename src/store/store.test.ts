@@ -42,6 +42,6 @@ describe('store undo/redo', () => {
     update((s) => addPreset(s, { name: 'C', style: {}, id: 'c' }), { key: 'k' })
     expect(useStore.getState().history.past).toHaveLength(1)
     useStore.getState().undo()
-    expect(useStore.getState().state.presets.map((p) => p.id)).toEqual(['preset-key-term', 'preset-emphasis', 'a'])
+    expect(useStore.getState().state.presets.map((p) => p.id)).toEqual([...seedState.presets.map((p) => p.id), 'a'])
   })
 })

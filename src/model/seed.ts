@@ -4,7 +4,8 @@ import type { State } from './types'
 export const seedState: State = {
   documents: [],
   presets: [
-    { id: 'preset-key-term', name: 'Key term', style: { background: '#fef08a' }, shortcut: '1' },
+    { id: 'preset-highlight', name: 'Highlight', style: { background: '#f7ef5b' }, shortcut: '1' },
+    { id: 'preset-green', name: 'Green', style: { color: '#4b9f58', italic: true }, shortcut: 'g' },
     { id: 'preset-emphasis', name: 'Emphasis', style: { color: '#b91c1c', bold: true, underline: true }, shortcut: '2' },
   ],
   highlights: [],
