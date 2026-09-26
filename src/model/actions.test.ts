@@ -22,6 +22,7 @@ import {
   setLinkLabel,
   shortcutConflict,
   toggleHighlight,
+  toggleLink,
   updatePreset,
 } from './actions'
 import type { State } from './types'
@@ -315,6 +316,16 @@ describe('links', () => {
     expect(addLink(once, { from: hl('h2'), to: hl('h1') }).links).toHaveLength(2)
   })
 
+  test('toggleLink removes an existing link in either direction, otherwise adds', () => {
+    const once = toggleLink(withHighlights, { from: hl('h1'), to: hl('h2') })
+    expect(once.links).toHaveLength(1)
+    expect(toggleLink(once, { from: hl('h1'), to: hl('h2') }).links).toEqual([])
+    expect(toggleLink(once, { from: hl('h2'), to: hl('h1') }).links).toEqual([])
+    const other = toggleLink(once, { from: dc('doc'), to: hl('h2') })
+    expect(other.links).toHaveLength(2)
+    expect(toggleLink(withHighlights, { from: hl('h1'), to: hl('h1') })).toBe(withHighlights)
+  })
+
   test('setLinkLabel sets, replaces, and clears the label', () => {
     const linked = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), id: 'l' })
     expect(setLinkLabel(linked, 'l', ' echo ').links[0].label).toBe('echo')
@@ -400,6 +411,16 @@ describe('links', () => {
     expect(addLink(once, { from: hl('h1'), to: hl('h2') })).toBe(once)
     // The reverse direction is a different link.
     expect(addLink(once, { from: hl('h2'), to: hl('h1') }).links).toHaveLength(2)
+  })
+
+  test('toggleLink removes an existing link in either direction, otherwise adds', () => {
+    const once = toggleLink(withHighlights, { from: hl('h1'), to: hl('h2') })
+    expect(once.links).toHaveLength(1)
+    expect(toggleLink(once, { from: hl('h1'), to: hl('h2') }).links).toEqual([])
+    expect(toggleLink(once, { from: hl('h2'), to: hl('h1') }).links).toEqual([])
+    const other = toggleLink(once, { from: dc('doc'), to: hl('h2') })
+    expect(other.links).toHaveLength(2)
+    expect(toggleLink(withHighlights, { from: hl('h1'), to: hl('h1') })).toBe(withHighlights)
   })
 
   test('setLinkLabel sets, replaces, and clears the label', () => {

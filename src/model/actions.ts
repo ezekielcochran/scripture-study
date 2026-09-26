@@ -347,6 +347,18 @@ export function addLink(state: State, l: NewLink): State {
   return { ...state, links: [...state.links, link] }
 }
 
+/**
+ * Click-to-link toggle: if a link already joins these two ends (in either
+ * direction) remove it, otherwise add one.
+ */
+export function toggleLink(state: State, l: NewLink): State {
+  const existing = state.links.find(
+    (x) =>
+      (sameEnd(x.from, l.from) && sameEnd(x.to, l.to)) || (sameEnd(x.from, l.to) && sameEnd(x.to, l.from)),
+  )
+  return existing ? deleteLink(state, existing.id) : addLink(state, l)
+}
+
 /** Set a link's label; an empty label removes it. */
 export function setLinkLabel(state: State, id: string, label: string): State {
   if (!state.links.some((l) => l.id === id)) return state
