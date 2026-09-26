@@ -2,6 +2,7 @@ import type { Edge, Node, NodeChange } from '@xyflow/react'
 import type { Highlight, Layout, LinkEnd, State, Window } from '../model/types'
 import { bringToFront, moveWindow, resizeWindow } from '../model/actions'
 import type { RecordOptions } from '../store/history'
+import type { LinkPart } from './geometry'
 
 export interface WindowNodeData {
   windowId: string
@@ -19,7 +20,7 @@ export function layoutToNodes(layout: Layout): WindowNode[] {
     id: w.id,
     type: 'window',
     position: { x: w.x, y: w.y },
-    zIndex: w.z,
+    zIndex: nodeZIndex(w.z),
     width: w.width,
     height: w.height,
     dragHandle: `.${DRAG_HANDLE_CLASS}`,
@@ -48,6 +49,8 @@ export function applyNodeChangesToState(state: State, changes: NodeChange<Window
 
 export interface LinkEdgeData {
   linkId: string
+  /** Which piece of the link this edge draws; see linkPieces in geometry.ts. */
+  part: LinkPart
   label?: string
   [key: string]: unknown
 }
@@ -55,10 +58,26 @@ export interface LinkEdgeData {
 export type LinkEdge = Edge<LinkEdgeData, 'link'>
 
 /**
- * Edges and their labels render above every window (window z values are kept
- * small by bringToFront). The edge label layer gets the same value in index.css.
+ * Z ordering: windows take even z-indexes (2 * z). A link is drawn as three
+ * edges: the lead inside each window sits one above that window, and the span
+ * between the windows sits one above the lower of the two, so a window above
+ * both linked windows covers the span and a window below either does not.
+ * A link whose label is being edited is elevated above everything.
  */
-export const EDGE_Z_INDEX = 10000
+export const ELEVATED_EDGE_Z_INDEX = 100000
+
+export function nodeZIndex(z: number): number {
+  return z * 2
+}
+
+export function edgeZIndex(zA: number, zB: number): number {
+  return Math.min(zA, zB) * 2 + 1
+}
+
+/** Is this handle id the document-level anchor in a window header? */
+export function isDocumentHandle(handleId: string | null | undefined): boolean {
+  return typeof handleId === 'string' && handleId.startsWith('doc:')
+}
 
 /** Does the window show any part of the highlight? */
 function windowShows(w: Window, h: Highlight): boolean {
@@ -82,11 +101,12 @@ function resolveEnd(state: State, layout: Layout, end: LinkEnd): { windows: Wind
 }
 
 /**
- * One edge per link for every pair of windows showing its two ends. Highlight
- * ends attach to the per-highlight handles inside a window; document ends attach
- * to the handle in the window header. Ends not visible in any window draw nothing.
+ * Three edges (pieces) per link for every pair of windows showing its two ends.
+ * Highlight ends attach to the per-highlight handles inside a window; document
+ * ends attach to the handle in the window header. Ends not visible in any window
+ * draw nothing.
  */
-export function linksToEdges(state: State, layout: Layout): LinkEdge[] {
+export function linksToEdges(state: State, layout: Layout, opts: { elevateLinkId?: string | null } = {}): LinkEdge[] {
   const edges: LinkEdge[] = []
   for (const link of state.links) {
     const from = resolveEnd(state, layout, link.from)
@@ -94,16 +114,24 @@ export function linksToEdges(state: State, layout: Layout): LinkEdge[] {
     if (!from || !to) continue
     for (const a of from.windows) {
       for (const b of to.windows) {
-        edges.push({
-          id: `${link.id}:${a.id}:${b.id}`,
-          type: 'link',
-          zIndex: EDGE_Z_INDEX,
-          source: a.id,
-          sourceHandle: from.handle,
-          target: b.id,
-          targetHandle: to.handle,
-          data: { linkId: link.id, ...(link.label ? { label: link.label } : {}) },
-        })
+        const elevated = link.id === opts.elevateLinkId
+        const parts: [LinkPart, number][] = [
+          ['a', nodeZIndex(a.z) + 1],
+          ['mid', edgeZIndex(a.z, b.z)],
+          ['b', nodeZIndex(b.z) + 1],
+        ]
+        for (const [part, z] of parts) {
+          edges.push({
+            id: `${link.id}:${a.id}:${b.id}:${part}`,
+            type: 'link',
+            zIndex: elevated ? ELEVATED_EDGE_Z_INDEX : z,
+            source: a.id,
+            sourceHandle: from.handle,
+            target: b.id,
+            targetHandle: to.handle,
+            data: { linkId: link.id, part, ...(link.label ? { label: link.label } : {}) },
+          })
+        }
       }
     }
   }

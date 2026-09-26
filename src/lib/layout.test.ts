@@ -24,7 +24,7 @@ const state: State = {
 
 test('layoutToNodes maps windows to draggable-by-header nodes', () => {
   const nodes = layoutToNodes(state.layouts[0])
-  expect(nodes[0]).toMatchObject({ id: 'a', type: 'window', position: { x: 0, y: 0 }, width: 100, height: 80, zIndex: 1 })
+  expect(nodes[0]).toMatchObject({ id: 'a', type: 'window', position: { x: 0, y: 0 }, width: 100, height: 80, zIndex: 2 })
   expect(nodes[0].dragHandle).toBe('.window-drag-handle')
 })
 
@@ -87,22 +87,40 @@ describe('linksToEdges', () => {
     ],
   }
 
-  test('produces an edge per window pair showing both ends, with handles per highlight', () => {
+  /** The middle pieces only, with the part suffix stripped from ids. */
+  const mids = (edges: ReturnType<typeof linksToEdges>) =>
+    edges.filter((e) => e.data?.part === 'mid').map((e) => ({ ...e, id: e.id.replace(/:mid$/, '') }))
+
+  test('produces three pieces per window pair showing both ends, with handles per highlight', () => {
     const edges = linksToEdges(linked, linked.layouts[0])
-    expect(edges.filter((e) => e.id.startsWith('l')).map((e) => e.id).sort()).toEqual(
+    expect(edges.length % 3).toBe(0)
+    expect(mids(edges).filter((e) => e.id.startsWith('l')).map((e) => e.id).sort()).toEqual(
       ['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c', 'ld:b:a'].sort(),
     )
-    const e = edges.find((x) => x.id === 'l1:a:b')!
-    expect(e).toMatchObject({ type: 'link', source: 'a', sourceHandle: 'h1', target: 'b', targetHandle: 'h3', data: { linkId: 'l1', label: 'cf.' } })
-    expect(edges.find((x) => x.id === 'l2:a:a')!.data).toEqual({ linkId: 'l2' })
+    const e = mids(edges).find((x) => x.id === 'l1:a:b')!
+    expect(e).toMatchObject({ type: 'link', source: 'a', sourceHandle: 'h1', target: 'b', targetHandle: 'h3', data: { linkId: 'l1', part: 'mid', label: 'cf.' } })
+    expect(mids(edges).find((x) => x.id === 'l2:a:a')!.data).toEqual({ linkId: 'l2', part: 'mid' })
+    expect(edges.filter((x) => x.id.startsWith('l1:a:b:')).map((x) => x.data?.part)).toEqual(['a', 'mid', 'b'])
   })
 
   test('document ends attach to the header handle of every window showing the document', () => {
-    const edges = linksToEdges(linked, linked.layouts[0])
+    const edges = mids(linksToEdges(linked, linked.layouts[0]))
     expect(edges.find((e) => e.id === 'ld:b:a')).toMatchObject({ sourceHandle: 'doc:doc2', targetHandle: 'h2' })
     // doc is shown by windows a and c; doc2 by b.
     expect(edges.filter((e) => e.id.startsWith('dd:')).map((e) => e.id).sort()).toEqual(['dd:a:b', 'dd:c:b'])
     expect(edges.some((e) => e.id.startsWith('dgone:'))).toBe(false)
+  })
+
+  test('leads sit above their own window, spans above the lower window, unless elevated', () => {
+    const edges = linksToEdges(linked, linked.layouts[0])
+    // a has z 1, b has z 2, c has z 3: nodes are 2, 4, 6.
+    const z = (id: string) => edges.find((e) => e.id === id)!.zIndex
+    expect([z('l1:a:b:a'), z('l1:a:b:mid'), z('l1:a:b:b')]).toEqual([3, 3, 5])
+    expect([z('l1:c:b:a'), z('l1:c:b:mid'), z('l1:c:b:b')]).toEqual([7, 5, 5])
+    expect(z('l2:a:a:mid')).toBe(3)
+    const elevated = linksToEdges(linked, linked.layouts[0], { elevateLinkId: 'l1' })
+    expect(elevated.find((e) => e.id === 'l1:a:b:mid')!.zIndex).toBeGreaterThan(1000)
+    expect(elevated.find((e) => e.id === 'l2:a:a:mid')!.zIndex).toBe(3)
   })
 
   test('skips links whose highlights are missing or not shown', () => {

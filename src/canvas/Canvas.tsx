@@ -29,9 +29,10 @@ export function Canvas() {
   const linkSource = useUiStore((s) => s.linkSource)
   const setLinkSource = useUiStore((s) => s.setLinkSource)
   const setEditingLink = useUiStore((s) => s.setEditingLink)
+  const editingLinkId = useUiStore((s) => s.editingLinkId)
   const layout = state.layouts[0]
   const nodes = layoutToNodes(layout)
-  const edges = linksToEdges(state, layout)
+  const edges = linksToEdges(state, layout, { elevateLinkId: editingLinkId })
   useHighlightShortcuts()
   useUndoShortcuts()
 
