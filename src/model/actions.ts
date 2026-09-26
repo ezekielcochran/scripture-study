@@ -21,6 +21,7 @@ export function addHighlight(state: State, h: NewHighlight): State {
   const end = Math.min(doc.text.length, h.end)
   if (start >= end) return state
   if (!state.presets.some((p) => p.id === h.presetId)) return state
+  if (h.id !== undefined && state.highlights.some((x) => x.id === h.id)) return state
 
   const highlight: Highlight = {
     id: h.id ?? newId('hl'),

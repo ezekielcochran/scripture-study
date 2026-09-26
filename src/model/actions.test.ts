@@ -54,6 +54,11 @@ describe('addHighlight', () => {
     expect(next.highlights[0]).toMatchObject({ start: 0, end: 11 })
   })
 
+  test('refuses an id that is already in use', () => {
+    const once = addHighlight(base, { documentId: 'doc', start: 0, end: 5, presetId: 'p1', id: 'h' })
+    expect(addHighlight(once, { documentId: 'doc', start: 6, end: 9, presetId: 'p2', id: 'h' })).toBe(once)
+  })
+
   test('ignores empty ranges, unknown documents, and unknown presets', () => {
     expect(addHighlight(base, { documentId: 'doc', start: 3, end: 3, presetId: 'p1' })).toBe(base)
     expect(addHighlight(base, { documentId: 'nope', start: 0, end: 3, presetId: 'p1' })).toBe(base)

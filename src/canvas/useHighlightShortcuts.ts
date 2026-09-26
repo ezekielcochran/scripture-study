@@ -48,7 +48,10 @@ export function useHighlightShortcuts() {
       const { linkSource, setLinkSource } = useUiStore.getState()
       const sel = window.getSelection()
       const armed = linkSource !== null ? state.highlights.find((h) => h.id === linkSource) : undefined
-      const target = selectionTarget(sel, state.layouts.flatMap((l) => l.windows)) ?? armed
+      // Only the range of the armed highlight, never its id: the toggle may create a new highlight.
+      const target =
+        selectionTarget(sel, state.layouts.flatMap((l) => l.windows)) ??
+        (armed && { documentId: armed.documentId, start: armed.start, end: armed.end })
       if (!target) return
 
       e.preventDefault()
