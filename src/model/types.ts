@@ -33,10 +33,13 @@ export interface Highlight {
   note?: string
 }
 
+/** One end of a link: a specific highlight, or a whole document. */
+export type LinkEnd = { kind: 'highlight'; id: string } | { kind: 'document'; id: string }
+
 export interface Link {
   id: string
-  fromHighlightId: string
-  toHighlightId: string
+  from: LinkEnd
+  to: LinkEnd
   label?: string
 }
 

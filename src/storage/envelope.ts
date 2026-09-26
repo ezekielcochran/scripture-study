@@ -4,7 +4,7 @@ import type { State } from '../model/types'
  * Everything that leaves the app (localStorage, export files, a future backend)
  * is wrapped in this envelope so the shape can be migrated when it changes.
  */
-export const CURRENT_VERSION = 1
+export const CURRENT_VERSION = 2
 
 export interface Envelope {
   app: 'text-study'
@@ -45,9 +45,24 @@ export function deserialize(json: string): ParseResult {
 
 /** Upgrade older envelopes step by step to CURRENT_VERSION. Add a case per version bump. */
 function migrate(version: number, state: unknown): unknown {
-  // Version 1 is the first; nothing to migrate yet.
-  void version
-  return state
+  let s = state
+  if (version < 2) s = migrateV1toV2(s)
+  return s
+}
+
+/** v1 links were highlight-to-highlight only: { fromHighlightId, toHighlightId }. */
+function migrateV1toV2(state: unknown): unknown {
+  if (!isRecord(state) || !Array.isArray(state.links)) return state
+  const links = state.links.map((l: unknown) => {
+    if (!isRecord(l) || !isStr(l.fromHighlightId) || !isStr(l.toHighlightId)) return l
+    const { fromHighlightId, toHighlightId, ...rest } = l
+    return {
+      ...rest,
+      from: { kind: 'highlight', id: fromHighlightId },
+      to: { kind: 'highlight', id: toHighlightId },
+    }
+  })
+  return { ...state, links }
 }
 
 // ---- Validation ---------------------------------------------------------
@@ -93,8 +108,11 @@ const isHighlight = (h: unknown) =>
   isStr(h.presetId) &&
   isOptStr(h.note)
 
+const isLinkEnd = (e: unknown) =>
+  isRecord(e) && (e.kind === 'highlight' || e.kind === 'document') && isStr(e.id)
+
 const isLink = (l: unknown) =>
-  isRecord(l) && isStr(l.id) && isStr(l.fromHighlightId) && isStr(l.toHighlightId) && isOptStr(l.label)
+  isRecord(l) && isStr(l.id) && isLinkEnd(l.from) && isLinkEnd(l.to) && isOptStr(l.label)
 
 const isRange = (r: unknown) => r === undefined || (isRecord(r) && isNum(r.start) && isNum(r.end))
 

@@ -2,6 +2,9 @@ import { describe, expect, test } from 'vitest'
 import { applyNodeChangesToState, layoutToNodes, linksToEdges } from './layout'
 import type { State } from '../model/types'
 
+const hl = (id: string) => ({ kind: 'highlight' as const, id })
+const dc = (id: string) => ({ kind: 'document' as const, id })
+
 const state: State = {
   documents: [{ id: 'doc', text: 'x', createdAt: 'c' }],
   presets: [],
@@ -63,9 +66,12 @@ describe('linksToEdges', () => {
       { id: 'h3', documentId: 'doc2', start: 0, end: 1, presetId: 'p' },
     ],
     links: [
-      { id: 'l1', fromHighlightId: 'h1', toHighlightId: 'h3', label: 'cf.' },
-      { id: 'l2', fromHighlightId: 'h2', toHighlightId: 'h1' },
-      { id: 'dangling', fromHighlightId: 'h1', toHighlightId: 'gone' },
+      { id: 'l1', from: hl('h1'), to: hl('h3'), label: 'cf.' },
+      { id: 'l2', from: hl('h2'), to: hl('h1') },
+      { id: 'dangling', from: hl('h1'), to: hl('gone') },
+      { id: 'ld', from: dc('doc2'), to: hl('h2') },
+      { id: 'dd', from: dc('doc'), to: dc('doc2') },
+      { id: 'dgone', from: dc('nope'), to: dc('doc2') },
     ],
     layouts: [
       {
@@ -83,10 +89,20 @@ describe('linksToEdges', () => {
 
   test('produces an edge per window pair showing both ends, with handles per highlight', () => {
     const edges = linksToEdges(linked, linked.layouts[0])
-    expect(edges.map((e) => e.id).sort()).toEqual(['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c'].sort())
+    expect(edges.filter((e) => e.id.startsWith('l')).map((e) => e.id).sort()).toEqual(
+      ['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c', 'ld:b:a'].sort(),
+    )
     const e = edges.find((x) => x.id === 'l1:a:b')!
     expect(e).toMatchObject({ type: 'link', source: 'a', sourceHandle: 'h1', target: 'b', targetHandle: 'h3', data: { linkId: 'l1', label: 'cf.' } })
     expect(edges.find((x) => x.id === 'l2:a:a')!.data).toEqual({ linkId: 'l2' })
+  })
+
+  test('document ends attach to the header handle of every window showing the document', () => {
+    const edges = linksToEdges(linked, linked.layouts[0])
+    expect(edges.find((e) => e.id === 'ld:b:a')).toMatchObject({ sourceHandle: 'doc:doc2', targetHandle: 'h2' })
+    // doc is shown by windows a and c; doc2 by b.
+    expect(edges.filter((e) => e.id.startsWith('dd:')).map((e) => e.id).sort()).toEqual(['dd:a:b', 'dd:c:b'])
+    expect(edges.some((e) => e.id.startsWith('dgone:'))).toBe(false)
   })
 
   test('skips links whose highlights are missing or not shown', () => {

@@ -1,6 +1,13 @@
 import { useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
-import { deleteDocument, findOpenWindow, nextWindowPlacement, openDocument, setDocumentTitle } from '../model/actions'
+import {
+  deleteDocument,
+  findOpenWindow,
+  nextWindowPlacement,
+  openDocument,
+  pruneLinks,
+  setDocumentTitle,
+} from '../model/actions'
 import type { Document } from '../model/types'
 import { Dialog } from './Dialog'
 
@@ -27,7 +34,7 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
 
   function remove(doc: Document) {
     const ids = new Set(state.highlights.filter((h) => h.documentId === doc.id).map((h) => h.id))
-    const links = state.links.filter((l) => ids.has(l.fromHighlightId) || ids.has(l.toHighlightId)).length
+    const links = state.links.length - pruneLinks(state.links, { highlights: ids, documents: new Set([doc.id]) }).length
     const name = doc.title ?? 'Untitled'
     const detail = ids.size || links ? ` ${ids.size} highlight(s) and ${links} link(s) will be removed.` : ''
     if (window.confirm(`Delete "${name}"?${detail}`)) update((s) => deleteDocument(s, doc.id))

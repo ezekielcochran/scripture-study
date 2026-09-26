@@ -26,6 +26,9 @@ import {
 } from './actions'
 import type { State } from './types'
 
+const hl = (id: string) => ({ kind: 'highlight' as const, id })
+const dc = (id: string) => ({ kind: 'document' as const, id })
+
 const base: State = {
   documents: [{ id: 'doc', text: 'hello world', createdAt: '2026-01-01T00:00:00.000Z' }],
   presets: [
@@ -87,8 +90,8 @@ describe('editDocument', () => {
       { id: 'other', documentId: 'other-doc', start: 0, end: 3, presetId: 'p1' },
     ],
     links: [
-      { id: 'l1', fromHighlightId: 'a', toHighlightId: 'b' },
-      { id: 'l2', fromHighlightId: 'b', toHighlightId: 'other' },
+      { id: 'l1', from: hl('a'), to: hl('b') },
+      { id: 'l2', from: hl('b'), to: hl('other') },
     ],
     layouts: [
       {
@@ -190,7 +193,7 @@ describe('presets', () => {
       { id: 'h1', documentId: 'doc', start: 0, end: 2, presetId: 'p1' },
       { id: 'h2', documentId: 'doc', start: 3, end: 5, presetId: 'p2' },
     ],
-    links: [{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2' }],
+    links: [{ id: 'l', from: hl('h1'), to: hl('h2') }],
   }
 
   test('addPreset appends and omits an empty shortcut', () => {
@@ -271,6 +274,110 @@ describe('window management', () => {
 describe('links', () => {
   const withHighlights: State = {
     ...base,
+    documents: [
+      { id: 'doc', text: 'hello world', createdAt: 'c' },
+      { id: 'doc2', text: 'other', createdAt: 'c' },
+    ],
+    highlights: [
+      { id: 'h1', documentId: 'doc', start: 0, end: 2, presetId: 'p1' },
+      { id: 'h2', documentId: 'doc', start: 3, end: 5, presetId: 'p2' },
+    ],
+  }
+
+  test('addLink links two highlights and trims the label', () => {
+    const next = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), label: ' cf. ', id: 'l' })
+    expect(next.links).toEqual([{ id: 'l', from: hl('h1'), to: hl('h2'), label: 'cf.' }])
+    const noLabel = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), label: ' ' })
+    expect(noLabel.links[0]).not.toHaveProperty('label')
+    expect(noLabel.links[0].id).toMatch(/^link-/)
+  })
+
+  test('addLink supports every combination of highlight and document ends', () => {
+    let s = addLink(withHighlights, { from: hl('h1'), to: dc('doc2'), id: 'a' })
+    s = addLink(s, { from: dc('doc'), to: hl('h2'), id: 'b' })
+    s = addLink(s, { from: dc('doc'), to: dc('doc2'), id: 'c' })
+    expect(s.links.map((l) => [l.from.kind, l.to.kind])).toEqual([
+      ['highlight', 'document'],
+      ['document', 'highlight'],
+      ['document', 'document'],
+    ])
+  })
+
+  test('addLink rejects self-links, unknown ends, and exact duplicates', () => {
+    expect(addLink(withHighlights, { from: hl('h1'), to: hl('h1') })).toBe(withHighlights)
+    expect(addLink(withHighlights, { from: dc('doc'), to: dc('doc') })).toBe(withHighlights)
+    expect(addLink(withHighlights, { from: hl('h1'), to: hl('nope') })).toBe(withHighlights)
+    expect(addLink(withHighlights, { from: hl('h1'), to: dc('nope') })).toBe(withHighlights)
+    // A highlight and a document with the same id string are different ends.
+    const once = addLink(withHighlights, { from: hl('h1'), to: hl('h2') })
+    expect(addLink(once, { from: hl('h1'), to: hl('h2') })).toBe(once)
+    // The reverse direction is a different link.
+    expect(addLink(once, { from: hl('h2'), to: hl('h1') }).links).toHaveLength(2)
+  })
+
+  test('setLinkLabel sets, replaces, and clears the label', () => {
+    const linked = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), id: 'l' })
+    expect(setLinkLabel(linked, 'l', ' echo ').links[0].label).toBe('echo')
+    expect(setLinkLabel(setLinkLabel(linked, 'l', 'x'), 'l', '').links[0]).not.toHaveProperty('label')
+    expect(setLinkLabel(linked, 'nope', 'x')).toBe(linked)
+  })
+
+  test('deleteLink removes only that link', () => {
+    let s = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), id: 'a' })
+    s = addLink(s, { from: hl('h2'), to: hl('h1'), id: 'b' })
+    expect(deleteLink(s, 'a').links.map((l) => l.id)).toEqual(['b'])
+    expect(deleteLink(s, 'nope')).toBe(s)
+  })
+})
+
+describe('window management', () => {
+  const w = (id: string, z: number) => ({ id, documentId: 'doc', x: 0, y: 0, width: 100, height: 80, z })
+  const withWindows: State = {
+    ...base,
+    documents: [{ id: 'doc', text: 'hello', createdAt: 'c' }],
+    layouts: [{ id: 'L', name: 'L', windows: [w('a', 1), w('b', 2), w('c', 3)] }],
+  }
+  const windows = (s: State) => s.layouts[0].windows
+
+  test('moveWindow updates position only', () => {
+    const next = moveWindow(withWindows, 'a', { x: 10, y: -5 })
+    expect(windows(next)[0]).toEqual({ ...w('a', 1), x: 10, y: -5 })
+    expect(windows(next).slice(1)).toEqual(windows(withWindows).slice(1))
+    expect(moveWindow(withWindows, 'nope', { x: 1, y: 1 })).toBe(withWindows)
+  })
+
+  test('resizeWindow updates size and rejects non-positive sizes', () => {
+    expect(windows(resizeWindow(withWindows, 'b', { width: 300, height: 200 }))[1]).toMatchObject({ width: 300, height: 200 })
+    expect(resizeWindow(withWindows, 'b', { width: 0, height: 200 })).toBe(withWindows)
+  })
+
+  test('bringToFront puts the window on top with compact z values, and is a no-op when already on top', () => {
+    const next = bringToFront(withWindows, 'a')
+    expect(windows(next).map((x) => x.z)).toEqual([3, 1, 2])
+    const sparse = { ...withWindows, layouts: [{ id: 'L', name: 'L', windows: [w('a', 10), w('b', 50), w('c', 70)] }] }
+    expect(windows(bringToFront(sparse, 'b')).map((x) => x.z)).toEqual([1, 3, 2])
+    expect(bringToFront(withWindows, 'c')).toBe(withWindows)
+    expect(bringToFront(withWindows, 'nope')).toBe(withWindows)
+  })
+
+  test('closeWindow removes only that window and keeps the document', () => {
+    const next = closeWindow(withWindows, 'b')
+    expect(windows(next).map((x) => x.id)).toEqual(['a', 'c'])
+    expect(next.documents).toBe(withWindows.documents)
+    expect(closeWindow(withWindows, 'nope')).toBe(withWindows)
+  })
+
+  test('openWindow adds a window for an existing document on top', () => {
+    const next = openWindow(withWindows, 'L', 'doc', { x: 1, y: 2, width: 50, height: 40, id: 'd' })
+    expect(windows(next).at(-1)).toEqual({ id: 'd', documentId: 'doc', x: 1, y: 2, width: 50, height: 40, z: 4 })
+    expect(openWindow(withWindows, 'L', 'missing', { x: 1, y: 2, width: 50, height: 40 })).toBe(withWindows)
+    expect(openWindow(withWindows, 'nope', 'doc', { x: 1, y: 2, width: 50, height: 40 })).toBe(withWindows)
+  })
+})
+
+describe('links', () => {
+  const withHighlights: State = {
+    ...base,
     documents: [{ id: 'doc', text: 'hello world', createdAt: 'c' }],
     highlights: [
       { id: 'h1', documentId: 'doc', start: 0, end: 2, presetId: 'p1' },
@@ -279,32 +386,32 @@ describe('links', () => {
   }
 
   test('addLink links two highlights and trims the label', () => {
-    const next = addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h2', label: ' cf. ', id: 'l' })
-    expect(next.links).toEqual([{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2', label: 'cf.' }])
-    const noLabel = addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h2', label: ' ' })
+    const next = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), label: ' cf. ', id: 'l' })
+    expect(next.links).toEqual([{ id: 'l', from: hl('h1'), to: hl('h2'), label: 'cf.' }])
+    const noLabel = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), label: ' ' })
     expect(noLabel.links[0]).not.toHaveProperty('label')
     expect(noLabel.links[0].id).toMatch(/^link-/)
   })
 
   test('addLink rejects self-links, unknown highlights, and exact duplicates', () => {
-    expect(addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h1' })).toBe(withHighlights)
-    expect(addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'nope' })).toBe(withHighlights)
-    const once = addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h2' })
-    expect(addLink(once, { fromHighlightId: 'h1', toHighlightId: 'h2' })).toBe(once)
+    expect(addLink(withHighlights, { from: hl('h1'), to: hl('h1') })).toBe(withHighlights)
+    expect(addLink(withHighlights, { from: hl('h1'), to: hl('nope') })).toBe(withHighlights)
+    const once = addLink(withHighlights, { from: hl('h1'), to: hl('h2') })
+    expect(addLink(once, { from: hl('h1'), to: hl('h2') })).toBe(once)
     // The reverse direction is a different link.
-    expect(addLink(once, { fromHighlightId: 'h2', toHighlightId: 'h1' }).links).toHaveLength(2)
+    expect(addLink(once, { from: hl('h2'), to: hl('h1') }).links).toHaveLength(2)
   })
 
   test('setLinkLabel sets, replaces, and clears the label', () => {
-    const linked = addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h2', id: 'l' })
+    const linked = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), id: 'l' })
     expect(setLinkLabel(linked, 'l', ' echo ').links[0].label).toBe('echo')
     expect(setLinkLabel(setLinkLabel(linked, 'l', 'x'), 'l', '').links[0]).not.toHaveProperty('label')
     expect(setLinkLabel(linked, 'nope', 'x')).toBe(linked)
   })
 
   test('deleteLink removes only that link', () => {
-    let s = addLink(withHighlights, { fromHighlightId: 'h1', toHighlightId: 'h2', id: 'a' })
-    s = addLink(s, { fromHighlightId: 'h2', toHighlightId: 'h1', id: 'b' })
+    let s = addLink(withHighlights, { from: hl('h1'), to: hl('h2'), id: 'a' })
+    s = addLink(s, { from: hl('h2'), to: hl('h1'), id: 'b' })
     expect(deleteLink(s, 'a').links.map((l) => l.id)).toEqual(['b'])
     expect(deleteLink(s, 'nope')).toBe(s)
   })
@@ -318,7 +425,7 @@ describe('removeHighlight / toggleHighlight', () => {
       { id: 'a', documentId: 'doc', start: 2, end: 8, presetId: 'p1' },
       { id: 'b', documentId: 'doc', start: 4, end: 6, presetId: 'p2' },
     ],
-    links: [{ id: 'l', fromHighlightId: 'a', toHighlightId: 'b' }],
+    links: [{ id: 'l', from: hl('a'), to: hl('b') }],
   }
 
   test('removeHighlight drops the highlight and its links', () => {
@@ -356,7 +463,11 @@ describe('document rename, delete, open-or-focus', () => {
       { id: 'h1', documentId: 'd1', start: 0, end: 2, presetId: 'p1' },
       { id: 'h2', documentId: 'd2', start: 0, end: 2, presetId: 'p1' },
     ],
-    links: [{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2' }],
+    links: [
+      { id: 'l', from: hl('h1'), to: hl('h2') },
+      { id: 'ld', from: dc('d2'), to: dc('d1') },
+      { id: 'keep', from: dc('d2'), to: hl('h2') },
+    ],
     layouts: [
       {
         id: 'L',
@@ -377,11 +488,11 @@ describe('document rename, delete, open-or-focus', () => {
     expect(setDocumentTitle(two, 'nope', 'x')).toBe(two)
   })
 
-  test('deleteDocument removes the document, its highlights, their links, and its windows', () => {
+  test('deleteDocument removes the document, its highlights, links touching either, and its windows', () => {
     const next = deleteDocument(two, 'd1')
     expect(next.documents.map((d) => d.id)).toEqual(['d2'])
     expect(next.highlights.map((h) => h.id)).toEqual(['h2'])
-    expect(next.links).toEqual([])
+    expect(next.links.map((l) => l.id)).toEqual(['keep'])
     expect(next.layouts[0].windows.map((w) => w.id)).toEqual(['w2'])
     expect(deleteDocument(two, 'nope')).toBe(two)
   })

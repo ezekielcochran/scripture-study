@@ -1,5 +1,5 @@
 import type { Edge, Node, NodeChange } from '@xyflow/react'
-import type { Highlight, Layout, State, Window } from '../model/types'
+import type { Highlight, Layout, LinkEnd, State, Window } from '../model/types'
 import { bringToFront, moveWindow, resizeWindow } from '../model/actions'
 
 export interface WindowNodeData {
@@ -64,28 +64,43 @@ function windowShows(w: Window, h: Highlight): boolean {
   return w.documentId === h.documentId && (!w.range || (h.start < w.range.end && h.end > w.range.start))
 }
 
+/** Handle id used for a document end, rendered in the window header. */
+export function documentHandleId(documentId: string): string {
+  return `doc:${documentId}`
+}
+
+/** Windows where a link end is visible, and the handle id to attach to in each. */
+function resolveEnd(state: State, layout: Layout, end: LinkEnd): { windows: Window[]; handle: string } | null {
+  if (end.kind === 'highlight') {
+    const h = state.highlights.find((x) => x.id === end.id)
+    if (!h) return null
+    return { windows: layout.windows.filter((w) => windowShows(w, h)), handle: h.id }
+  }
+  if (!state.documents.some((d) => d.id === end.id)) return null
+  return { windows: layout.windows.filter((w) => w.documentId === end.id), handle: documentHandleId(end.id) }
+}
+
 /**
- * One edge per link for every pair of windows showing its two highlights.
- * Edges attach to the per-highlight handles rendered inside each window node.
- * Links whose highlights are not visible in any window produce no edges.
+ * One edge per link for every pair of windows showing its two ends. Highlight
+ * ends attach to the per-highlight handles inside a window; document ends attach
+ * to the handle in the window header. Ends not visible in any window draw nothing.
  */
 export function linksToEdges(state: State, layout: Layout): LinkEdge[] {
-  const byId = new Map(state.highlights.map((h) => [h.id, h]))
   const edges: LinkEdge[] = []
   for (const link of state.links) {
-    const from = byId.get(link.fromHighlightId)
-    const to = byId.get(link.toHighlightId)
+    const from = resolveEnd(state, layout, link.from)
+    const to = resolveEnd(state, layout, link.to)
     if (!from || !to) continue
-    for (const a of layout.windows.filter((w) => windowShows(w, from))) {
-      for (const b of layout.windows.filter((w) => windowShows(w, to))) {
+    for (const a of from.windows) {
+      for (const b of to.windows) {
         edges.push({
           id: `${link.id}:${a.id}:${b.id}`,
           type: 'link',
           zIndex: EDGE_Z_INDEX,
           source: a.id,
-          sourceHandle: from.id,
+          sourceHandle: from.handle,
           target: b.id,
-          targetHandle: to.id,
+          targetHandle: to.handle,
           data: { linkId: link.id, ...(link.label ? { label: link.label } : {}) },
         })
       }

@@ -26,12 +26,13 @@ State
 Document   { id, title?, text, createdAt }
 Preset     { id, name, style: { color?, background?, bold?, italic?, underline? }, shortcut? }
 Highlight  { id, documentId, start, end, presetId, note? }   // [start, end) offsets into document.text
-Link       { id, fromHighlightId, toHighlightId, label? }
+Link       { id, from: LinkEnd, to: LinkEnd, label? }
+LinkEnd    { kind: 'highlight' | 'document', id }        // a highlight, or a whole document
 Layout     { id, name, windows: Window[] }
 Window     { id, documentId, range?: { start, end }, x, y, width, height, z }
 ```
 
-A window shows a whole document or a sub-range of one. A layout is a saved arrangement of windows; the same document may appear in many windows and many layouts.
+A window shows a whole document or a sub-range of one. A layout is a saved arrangement of windows; the same document may appear in many windows and many layouts. Links connect highlights and/or documents (never windows), and are drawn on every window that shows an endpoint.
 
 ## Architecture
 

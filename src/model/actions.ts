@@ -1,4 +1,4 @@
-import type { Document, Highlight, Layout, Link, Preset, PresetStyle, State, Window } from './types'
+import type { Document, Highlight, Layout, Link, LinkEnd, Preset, PresetStyle, State, Window } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
 
@@ -33,13 +33,24 @@ export function addHighlight(state: State, h: NewHighlight): State {
   return { ...state, highlights: [...state.highlights, highlight] }
 }
 
+export function sameEnd(a: LinkEnd, b: LinkEnd): boolean {
+  return a.kind === b.kind && a.id === b.id
+}
+
+/** Links that touch none of the given highlights or documents. */
+export function pruneLinks(links: Link[], removed: { highlights?: Set<string>; documents?: Set<string> }): Link[] {
+  const gone = (e: LinkEnd) =>
+    e.kind === 'highlight' ? removed.highlights?.has(e.id) === true : removed.documents?.has(e.id) === true
+  return links.filter((l) => !gone(l.from) && !gone(l.to))
+}
+
 /** Remove a highlight together with any links that reference it. */
 export function removeHighlight(state: State, id: string): State {
   if (!state.highlights.some((h) => h.id === id)) return state
   return {
     ...state,
     highlights: state.highlights.filter((h) => h.id !== id),
-    links: state.links.filter((l) => l.fromHighlightId !== id && l.toHighlightId !== id),
+    links: pruneLinks(state.links, { highlights: new Set([id]) }),
   }
 }
 
@@ -92,7 +103,7 @@ export function editDocument(state: State, documentId: string, edit: Edit): Stat
     if (next) highlights.push({ ...h, ...next })
     else removed.add(h.id)
   }
-  const links = state.links.filter((l) => !removed.has(l.fromHighlightId) && !removed.has(l.toHighlightId))
+  const links = pruneLinks(state.links, { highlights: removed })
 
   const layouts = state.layouts.map((layout) => ({
     ...layout,
@@ -217,7 +228,7 @@ export function deletePreset(state: State, id: string): State {
     ...state,
     presets: state.presets.filter((p) => p.id !== id),
     highlights: state.highlights.filter((h) => !removed.has(h.id)),
-    links: state.links.filter((l) => !removed.has(l.fromHighlightId) && !removed.has(l.toHighlightId)),
+    links: pruneLinks(state.links, { highlights: removed }),
   }
 }
 
@@ -307,24 +318,30 @@ export function openWindow(state: State, layoutId: string, documentId: string, p
 // ---- Links ---------------------------------------------------------------
 
 export interface NewLink {
-  fromHighlightId: string
-  toHighlightId: string
+  from: LinkEnd
+  to: LinkEnd
   label?: string
   id?: string
 }
 
-/** Link two distinct existing highlights. An identical link (same direction) is not added twice. */
+function endExists(state: State, e: LinkEnd): boolean {
+  return e.kind === 'highlight'
+    ? state.highlights.some((h) => h.id === e.id)
+    : state.documents.some((d) => d.id === e.id)
+}
+
+/**
+ * Link two distinct existing ends (highlights and/or documents).
+ * An identical link (same ends, same direction) is not added twice.
+ */
 export function addLink(state: State, l: NewLink): State {
-  if (l.fromHighlightId === l.toHighlightId) return state
-  const ids = new Set(state.highlights.map((h) => h.id))
-  if (!ids.has(l.fromHighlightId) || !ids.has(l.toHighlightId)) return state
-  if (state.links.some((x) => x.fromHighlightId === l.fromHighlightId && x.toHighlightId === l.toHighlightId)) {
-    return state
-  }
+  if (sameEnd(l.from, l.to)) return state
+  if (!endExists(state, l.from) || !endExists(state, l.to)) return state
+  if (state.links.some((x) => sameEnd(x.from, l.from) && sameEnd(x.to, l.to))) return state
   const link: Link = {
     id: l.id ?? newId('link'),
-    fromHighlightId: l.fromHighlightId,
-    toHighlightId: l.toHighlightId,
+    from: { ...l.from },
+    to: { ...l.to },
     ...(l.label?.trim() ? { label: l.label.trim() } : {}),
   }
   return { ...state, links: [...state.links, link] }
@@ -373,7 +390,7 @@ export function deleteDocument(state: State, id: string): State {
     ...state,
     documents: state.documents.filter((d) => d.id !== id),
     highlights: state.highlights.filter((h) => h.documentId !== id),
-    links: state.links.filter((l) => !removed.has(l.fromHighlightId) && !removed.has(l.toHighlightId)),
+    links: pruneLinks(state.links, { highlights: removed, documents: new Set([id]) }),
     layouts: state.layouts.map((l) => ({ ...l, windows: l.windows.filter((w) => w.documentId !== id) })),
   }
 }

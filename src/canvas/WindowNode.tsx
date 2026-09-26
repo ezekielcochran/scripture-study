@@ -5,10 +5,11 @@ import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
 import { styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { addLink, closeWindow, editDocument } from '../model/actions'
+import { closeWindow, editDocument } from '../model/actions'
 import type { PresetStyle } from '../model/types'
-import { DRAG_HANDLE_CLASS, type WindowNode as WindowNodeType } from '../lib/layout'
+import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
+import { clickLinkEnd, isArmed } from './linking'
 
 function toCss(s: PresetStyle): CSSProperties {
   return {
@@ -40,7 +41,6 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
   const linkSource = useUiStore((s) => s.linkSource)
-  const setLinkSource = useUiStore((s) => s.setLinkSource)
   const updateNodeInternals = useUpdateNodeInternals()
   // Edit mode is view state for this window only, so it lives here rather than in the store.
   const [editing, setEditing] = useState(false)
@@ -71,23 +71,18 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     update((s) => editDocument(s, doc.id, { ...edit, position: edit.position + range.start }))
   }
 
-  /** Click a highlight to start a link, click another to finish it. */
+  /** Click a highlight to start a link, click another end to finish it. */
   function onTextClick(e: MouseEvent<HTMLDivElement>) {
     // A click that ends a drag-selection is not a link click.
     if (!window.getSelection()?.isCollapsed) return
     const span = (e.target as HTMLElement).closest<HTMLElement>('span[data-hl]')
     const ids = span?.dataset.hl?.split(' ').filter(Boolean) ?? []
     if (ids.length === 0) return
-    const target = ids[ids.length - 1] // innermost highlight wins
-    if (linkSource === null) {
-      setLinkSource(target)
-    } else if (linkSource === target) {
-      setLinkSource(null)
-    } else {
-      update((s) => addLink(s, { fromHighlightId: linkSource, toHighlightId: target }))
-      setLinkSource(null)
-    }
+    clickLinkEnd({ kind: 'highlight', id: ids[ids.length - 1] }) // innermost highlight wins
   }
+
+  const docEnd = { kind: 'document', id: doc.id } as const
+  const docArmed = isArmed(linkSource, docEnd)
 
   // Which highlights get their handles on which segment: the first segment that contains them.
   const anchored = new Set<string>()
@@ -102,10 +97,20 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
         handleClassName="!h-2.5 !w-2.5 !rounded-sm !border-gray-400 !bg-white opacity-0 group-hover:opacity-100"
       />
       <div
-        className={`${DRAG_HANDLE_CLASS} flex cursor-move items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600`}
+        className={`${DRAG_HANDLE_CLASS} relative flex cursor-move items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 ${docArmed ? 'outline-2 outline-dashed outline-blue-500' : ''}`}
       >
+        {/* Document-level link ends attach here, at the header's left edge. */}
+        <HighlightHandles id={documentHandleId(doc.id)} />
         <span className="truncate font-medium">{doc.title ?? 'Untitled'}</span>
         <span className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            className={`${headerButton} ${docArmed ? 'bg-blue-100' : ''}`}
+            title="Link this document: click to start or finish a link"
+            onClick={() => clickLinkEnd(docEnd)}
+          >
+            Link
+          </button>
           <button type="button" className={headerButton} onClick={() => setEditing((e) => !e)}>
             {editing ? 'Done' : 'Edit'}
           </button>
@@ -144,7 +149,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
           {segments.map((seg) => {
             const fresh = seg.highlightIds.filter((h) => !anchored.has(h))
             fresh.forEach((h) => anchored.add(h))
-            const isSource = linkSource !== null && seg.highlightIds.includes(linkSource)
+            const isSource = linkSource?.kind === 'highlight' && seg.highlightIds.includes(linkSource.id)
             return (
               <span
                 key={seg.start}

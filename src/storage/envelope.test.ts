@@ -29,6 +29,30 @@ describe('serialize / deserialize', () => {
     })
   })
 
+  test('migrates a version 1 file with highlight-only links', () => {
+    const v1 = {
+      app: 'text-study',
+      version: 1,
+      savedAt: 'x',
+      state: {
+        ...seedState,
+        documents: [{ id: 'd', text: 'abc', createdAt: 'c' }],
+        highlights: [
+          { id: 'h1', documentId: 'd', start: 0, end: 1, presetId: 'p' },
+          { id: 'h2', documentId: 'd', start: 1, end: 2, presetId: 'p' },
+        ],
+        links: [{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2', label: 'cf.' }],
+      },
+    }
+    const result = deserialize(JSON.stringify(v1))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.state.links).toEqual([
+        { id: 'l', from: { kind: 'highlight', id: 'h1' }, to: { kind: 'highlight', id: 'h2' }, label: 'cf.' },
+      ])
+    }
+  })
+
   test('rejects a version newer than the app', () => {
     const json = JSON.stringify({ ...wrap(seedState), version: CURRENT_VERSION + 1 })
     expect(deserialize(json).ok).toBe(false)
@@ -69,6 +93,9 @@ describe('validateState', () => {
     )
     expect(validateState({ ...seedState, layouts: [{ id: 'l', name: 'L', windows: [{ id: 'w' }] }] })).toBe(
       'layouts[0] is malformed',
+    )
+    expect(validateState({ ...seedState, links: [{ id: 'l', from: { kind: 'window', id: 'x' }, to: { kind: 'document', id: 'd' } }] })).toBe(
+      'links[0] is malformed',
     )
   })
 })
