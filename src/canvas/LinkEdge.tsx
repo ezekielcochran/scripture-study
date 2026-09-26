@@ -84,7 +84,7 @@ export function LinkEdge({
           id={id}
           path={path}
           markerEnd={part === lastPart ? markerEnd : undefined}
-          style={{ stroke: '#6b7280', strokeWidth: 1.5 }}
+          style={{ stroke: 'var(--link)', strokeWidth: 1.25 }}
         />
       )}
       {part === 'mid' && (label || editing) && (
@@ -99,13 +99,13 @@ export function LinkEdge({
         >
           <div className="flex h-full w-full items-center justify-center">
             <div
-              className="nodrag nopan group flex items-center gap-1 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow"
+              className="nodrag nopan group flex items-center gap-1 rounded border border-line bg-surface px-1.5 py-0.5 text-xs shadow"
               style={{ pointerEvents: 'all' }}
             >
               {editing ? (
                 <input
                   ref={inputRef}
-                  className="w-28 outline-none"
+                  className="w-28 bg-transparent text-ink outline-none"
                   defaultValue={label ?? ''}
                   placeholder="label"
                   autoFocus
@@ -122,7 +122,7 @@ export function LinkEdge({
               )}
               <button
                 type="button"
-                className={`rounded px-1 text-gray-400 hover:bg-gray-100 ${editing ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                className={`rounded px-1 text-muted hover:bg-surface-3 ${editing ? '' : 'opacity-0 group-hover:opacity-100'}`}
                 title="Delete link"
                 // onMouseDown so the click lands before the input's blur commits and closes the box.
                 onMouseDown={(e) => {

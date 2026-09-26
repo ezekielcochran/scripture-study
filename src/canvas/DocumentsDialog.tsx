@@ -41,13 +41,13 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
     if (window.confirm(`Delete "${name}"?${detail}`)) update((s) => deleteDocument(s, doc.id))
   }
 
-  const field = 'w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none'
-  const button = 'rounded border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50'
+  const field = 'w-full rounded border border-line bg-surface px-2 py-1 text-ink text-sm focus:border-muted focus:outline-none'
+  const button = 'rounded border border-line px-2 py-1 text-sm hover:bg-surface-3'
 
   return (
     <Dialog title="Documents" onClose={onClose}>
       {state.documents.length === 0 ? (
-        <div className="text-sm text-gray-500">No documents yet.</div>
+        <div className="text-sm text-muted">No documents yet.</div>
       ) : (
         <ul className="space-y-2">
           {state.documents.map((doc) => {
@@ -60,13 +60,13 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
                   placeholder="Untitled"
                   onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value), { key: `title:${doc.id}` })}
                 />
-                <span className="w-24 shrink-0 truncate text-xs text-gray-400" title={doc.text}>
+                <span className="w-24 shrink-0 truncate text-xs text-muted" title={doc.text}>
                   {doc.text.length} chars
                 </span>
                 <button type="button" className={`${button} w-16 shrink-0`} onClick={() => show(doc)}>
                   {open ? 'Show' : 'Open'}
                 </button>
-                <button type="button" className={`${button} shrink-0 text-gray-500`} onClick={() => remove(doc)}>
+                <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => remove(doc)}>
                   Delete
                 </button>
               </li>

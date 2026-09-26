@@ -33,11 +33,11 @@ export function Toolbar() {
     if (fileInput.current) fileInput.current.value = ''
   }
 
-  const button = 'rounded border border-gray-300 bg-white px-2 py-1 text-sm shadow hover:bg-gray-50'
+  const button = 'rounded border border-line bg-surface px-2 py-1 text-sm shadow hover:bg-surface-3'
   return (
     <>
       <Panel position="top-right" className="flex items-center gap-2">
-        {message && <span className="text-xs text-gray-600">{message}</span>}
+        {message && <span className="text-xs text-muted">{message}</span>}
         <button
           type="button"
           className={`${button} disabled:opacity-40`}

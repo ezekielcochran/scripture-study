@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { clampToRect, exitPoint, isDegenerate, linkEndpoints, linkPieces, nearestEdgePoint } from './geometry'
+import { clampToRect, edgeToward, exitPoint, isDegenerate, linkEndpoints, linkPieces, nearestEdgePoint } from './geometry'
 
 const r = { x: 100, y: 100, width: 200, height: 100 } // spans x 100..300, y 100..200
 
@@ -37,16 +37,30 @@ describe('linkEndpoints', () => {
     ])
   })
 
-  test('highlight to document: highlight stays put, document end faces it', () => {
+  test('highlight to document: highlight stays put, document end leaves toward it from the centre', () => {
     const [a, b] = linkEndpoints({ rect: left, anchor: { x: 20, y: 80 } }, { rect: right })
     expect(a).toEqual({ x: 20, y: 80 })
-    expect(b).toEqual({ x: 300, y: 80 })
+    // From (350,50) toward (20,80): crosses x=300 at 15% of the way, y ≈ 54.5.
+    expect(b.x).toBe(300)
+    expect(b.y).toBeCloseTo(54.55, 1)
   })
 
-  test('document to highlight: document end faces the highlight', () => {
+  test('document to highlight: document end leaves toward the highlight from the centre', () => {
     const [a, b] = linkEndpoints({ rect: right }, { rect: left, anchor: { x: 20, y: 80 } })
-    expect(a).toEqual({ x: 300, y: 80 })
+    expect(a.x).toBe(300)
+    expect(a.y).toBeCloseTo(54.55, 1)
     expect(b).toEqual({ x: 20, y: 80 })
+  })
+
+  test('document ends attach to a side, not a corner, for diagonal windows', () => {
+    const below = { x: 200, y: 300, width: 100, height: 100 }
+    const [a, b] = linkEndpoints({ rect: left }, { rect: below })
+    // Centres (50,50) and (250,350): the line leaves `left` through its bottom edge (at x = 50 + 200/6).
+    expect(a.y).toBe(100)
+    expect(a.x).toBeCloseTo(83.33, 1)
+    expect(b.y).toBe(300)
+    expect(b.x).toBeGreaterThan(200)
+    expect(b.x).toBeLessThan(300)
   })
 
   test('a highlight scrolled out of its window is clamped to the window edge', () => {
@@ -59,6 +73,17 @@ describe('linkEndpoints', () => {
       { x: 1, y: 2 },
       { x: 301, y: 2 },
     ])
+  })
+})
+
+describe('edgeToward', () => {
+  const r = { x: 0, y: 0, width: 100, height: 100 }
+  test('leaves through the side facing the point', () => {
+    expect(edgeToward(r, { x: 500, y: 50 })).toEqual({ x: 100, y: 50 })
+    expect(edgeToward(r, { x: 50, y: -500 })).toEqual({ x: 50, y: 0 })
+  })
+  test('falls back to the nearest side for an inside point', () => {
+    expect(edgeToward(r, { x: 5, y: 50 })).toEqual({ x: 0, y: 50 })
   })
 })
 

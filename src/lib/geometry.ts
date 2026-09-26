@@ -41,6 +41,17 @@ export function nearestEdgePoint(r: Rect, p: Point): Point {
   return { x: p.x, y: r.y + r.height }
 }
 
+/**
+ * Where a line from the rectangle's centre toward `p` leaves the rectangle, so
+ * a link attaches to the side facing `p` rather than snapping to a corner.
+ * If `p` is inside the rectangle, falls back to the nearest side.
+ */
+export function edgeToward(r: Rect, p: Point): Point {
+  const c = rectCenter(r)
+  const inside = clampToRect(p, r).x === p.x && clampToRect(p, r).y === p.y
+  return inside ? nearestEdgePoint(r, p) : exitPoint(r, c, p)
+}
+
 /** One end of a link on screen: its window and, for highlight ends, the highlight's own point. */
 export interface EdgeEnd {
   rect: Rect
@@ -51,12 +62,13 @@ export interface EdgeEnd {
 /**
  * Where a link's line starts and ends. Highlight ends sit at the highlight,
  * clamped into the window so a scrolled-away highlight anchors at the window
- * edge. Document ends sit on the window edge nearest the other end.
+ * edge. Document ends sit where the line from the window's centre toward the
+ * other end crosses the window edge, biased to the centre rather than a corner.
  */
 export function linkEndpoints(a: EdgeEnd, b: EdgeEnd): [Point, Point] {
   const provisionalB = b.anchor ? clampToRect(b.anchor, b.rect) : rectCenter(b.rect)
-  const pa = a.anchor ? clampToRect(a.anchor, a.rect) : nearestEdgePoint(a.rect, provisionalB)
-  const pb = b.anchor ? provisionalB : nearestEdgePoint(b.rect, pa)
+  const pa = a.anchor ? clampToRect(a.anchor, a.rect) : edgeToward(a.rect, provisionalB)
+  const pb = b.anchor ? provisionalB : edgeToward(b.rect, pa)
   return [pa, pb]
 }
 

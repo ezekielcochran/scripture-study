@@ -19,15 +19,15 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const field = 'w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none'
+  const field = 'w-full rounded border border-line bg-surface px-2 py-1 text-ink text-sm focus:border-muted focus:outline-none'
   return (
     <Dialog title="New document" onClose={onClose}>
       <label className="mb-2 block text-sm">
-        <span className="mb-1 block text-gray-600">Title (optional)</span>
+        <span className="mb-1 block text-muted">Title (optional)</span>
         <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
       </label>
       <label className="mb-3 block text-sm">
-        <span className="mb-1 block text-gray-600">Text</span>
+        <span className="mb-1 block text-muted">Text</span>
         <textarea
           className={`${field} h-56 resize-y font-serif`}
           value={text}
@@ -36,12 +36,12 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
         />
       </label>
       <div className="flex justify-end gap-2">
-        <button type="button" className="rounded px-3 py-1 text-sm hover:bg-gray-100" onClick={onClose}>
+        <button type="button" className="rounded px-3 py-1 text-sm hover:bg-surface-3" onClick={onClose}>
           Cancel
         </button>
         <button
           type="button"
-          className="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700 disabled:opacity-40"
+          className="rounded bg-ink px-3 py-1 text-sm text-bg hover:opacity-90 disabled:opacity-40"
           disabled={!text.trim()}
           onClick={create}
         >

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { Preset, PresetStyle } from '../model/types'
 
 /**
@@ -27,4 +28,18 @@ export function styleForPresetIds(presetIds: string[], presets: Preset[]): Prese
     if (p) styles.push(p.style)
   }
   return mergeStyles(styles)
+}
+
+/**
+ * CSS for a merged preset style. A preset with a fill but no text colour gets a
+ * dark text colour, since fills are typically light and must stay readable in dark mode.
+ */
+export function presetStyleToCss(s: PresetStyle): CSSProperties {
+  return {
+    color: s.color ?? (s.background ? 'var(--ink-on-highlight)' : undefined),
+    backgroundColor: s.background,
+    fontWeight: s.bold ? 'bold' : undefined,
+    fontStyle: s.italic ? 'italic' : undefined,
+    textDecoration: s.underline ? 'underline' : undefined,
+  }
 }

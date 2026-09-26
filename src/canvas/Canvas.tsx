@@ -21,7 +21,7 @@ import { useUndoShortcuts } from './useUndoShortcuts'
 // outside the component); otherwise it re-creates every node on each render.
 const nodeTypes = { window: WindowNode }
 const edgeTypes = { link: LinkEdge }
-const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: '#6b7280' } }
+const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--link)' } }
 
 export function Canvas() {
   const state = useStore((s) => s.state)
@@ -66,19 +66,20 @@ export function Canvas() {
       onPaneClick={() => setEditingLink(null)}
       elevateNodesOnSelect={false}
       deleteKeyCode={null}
+      colorMode="system"
       minZoom={0.2}
       maxZoom={4}
     >
-      <Background />
+      <Background bgColor="var(--bg)" color="var(--dots)" gap={20} size={1.6} />
       <PresetLegend />
       <Toolbar />
       {layout.windows.length === 0 && (
-        <Panel position="top-center" className="mt-24! text-sm text-gray-500">
+        <Panel position="top-center" className="mt-24! text-sm text-muted">
           No windows open. Use <b>New document</b> or <b>Documents</b> above.
         </Panel>
       )}
       {linkSource !== null && (
-        <Panel position="bottom-center" className="rounded border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm text-blue-800 shadow">
+        <Panel position="bottom-center" className="rounded border border-accent bg-surface px-3 py-1.5 text-sm text-ink shadow">
           Linking: click a highlight or a window's <b>Link</b> button to connect, press a preset key to toggle
           the armed highlight's format, or Esc to cancel.
         </Panel>

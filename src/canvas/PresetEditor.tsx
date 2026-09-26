@@ -32,12 +32,12 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
   // Colour pickers fire continuously while dragging; fold each into one step.
   const setStyle = (p: Preset, style: PresetStyle) =>
     update((s) => updatePreset(s, p.id, { style }), { key: `preset-style:${p.id}:${Object.keys(style).join()}` })
-  const field = 'rounded border border-gray-300 px-1.5 py-0.5 text-sm focus:border-gray-500 focus:outline-none'
+  const field = 'rounded border border-line bg-surface px-1.5 py-0.5 text-ink text-sm focus:border-muted focus:outline-none'
 
   return (
     <Dialog title="Presets" onClose={onClose}>
       <table className="w-full text-sm">
-        <thead className="text-left text-xs text-gray-500">
+        <thead className="text-left text-xs text-muted">
           <tr>
             <th className="pb-1 font-normal">Name</th>
             <th className="pb-1 font-normal">Key</th>
@@ -90,7 +90,7 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
                 </td>
               ))}
               <td className="py-1 pl-2 text-right">
-                <button type="button" className="rounded px-2 text-gray-500 hover:bg-gray-100" onClick={() => remove(p)}>
+                <button type="button" className="rounded px-2 text-muted hover:bg-surface-3" onClick={() => remove(p)}>
                   Delete
                 </button>
               </td>
@@ -98,16 +98,16 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
           ))}
         </tbody>
       </table>
-      {conflict && <div className="mt-2 text-xs text-red-600">{conflict}</div>}
+      {conflict && <div className="mt-2 text-xs text-danger">{conflict}</div>}
       <div className="mt-3 flex justify-between">
         <button
           type="button"
-          className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+          className="rounded border border-line px-3 py-1 text-sm hover:bg-surface-3"
           onClick={() => update((s) => addPreset(s, { name: 'New preset', style: { background: '#e0f2fe' } }))}
         >
           Add preset
         </button>
-        <button type="button" className="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700" onClick={onClose}>
+        <button type="button" className="rounded bg-ink px-3 py-1 text-sm text-bg hover:opacity-90" onClick={onClose}>
           Done
         </button>
       </div>
@@ -128,7 +128,7 @@ function ColorField({ value, onChange }: { value: string | undefined; onChange: 
       />
       <button
         type="button"
-        className={`rounded px-1 text-xs text-gray-400 hover:bg-gray-100 ${value ? '' : 'invisible'}`}
+        className={`rounded px-1 text-xs text-muted hover:bg-surface-3 ${value ? '' : 'invisible'}`}
         title="Clear"
         onClick={() => onChange(undefined)}
       >

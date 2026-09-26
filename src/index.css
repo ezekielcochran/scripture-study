@@ -1,9 +1,64 @@
 @import 'tailwindcss';
 @import '@xyflow/react/dist/style.css';
 
+/*
+ * Theme. Semantic colours are CSS variables that follow the system colour
+ * scheme; Tailwind utilities (bg-surface, text-ink, border-line, ...) map onto
+ * them via @theme inline, so components never name a raw colour.
+ */
+:root {
+  --bg: #ebe0db;
+  --dots: #c4afa7;
+  --surface: #fffbf9;
+  --surface-2: #f4ece8;
+  --surface-3: #eadfda;
+  --line: #d3c3bc;
+  --ink: #2b2323;
+  --ink-on-highlight: #2b2323;
+  --muted: #7d6f6a;
+  --accent: #2f6fdb;
+  --accent-soft: #dbe7fb;
+  --danger: #b93a2c;
+  --link: #b9aca6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #292121;
+    --dots: #4f3f3f;
+    --surface: #352b2b;
+    --surface-2: #3f3333;
+    --surface-3: #4a3c3c;
+    --line: #574747;
+    --ink: #efe6e2;
+    --muted: #ab9c97;
+    --accent: #7aa7ff;
+    --accent-soft: #3b4a6b;
+    --danger: #f09084;
+    --link: #7d6d68;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-dots: var(--dots);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: light dark;
 }

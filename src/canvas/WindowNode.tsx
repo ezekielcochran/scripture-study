@@ -3,26 +3,15 @@ import { Handle, NodeResizer, Position, useUpdateNodeInternals, type NodeProps }
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
-import { styleForPresetIds } from '../lib/style'
+import { presetStyleToCss, styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
 import { closeWindow, editDocument } from '../model/actions'
-import type { PresetStyle } from '../model/types'
 import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 import { clickLinkEnd, isArmed } from './linking'
 
-function toCss(s: PresetStyle): CSSProperties {
-  return {
-    color: s.color,
-    backgroundColor: s.background,
-    fontWeight: s.bold ? 'bold' : undefined,
-    fontStyle: s.italic ? 'italic' : undefined,
-    textDecoration: s.underline ? 'underline' : undefined,
-  }
-}
-
 const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
-const headerButton = 'rounded px-1.5 py-0.5 hover:bg-gray-200'
+const headerButton = 'rounded px-1.5 py-0.5 hover:bg-surface-3'
 // Edges attach here. Invisible and not connectable: links are made by clicking highlights.
 const handleStyle: CSSProperties = { width: 1, height: 1, minWidth: 0, minHeight: 0, opacity: 0, border: 0, pointerEvents: 'none' }
 
@@ -62,7 +51,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     updateNodeInternals(nodeId)
   }, [nodeId, updateNodeInternals, text, state.highlights, win?.width, win?.height, editing])
 
-  if (!win || !doc) return <div className="p-2 text-red-600">Missing window or document</div>
+  if (!win || !doc) return <div className="p-2 text-danger">Missing window or document</div>
 
   function onTextChange(next: string, caret: number) {
     const edit = diffEdit(text, next, caret)
@@ -90,15 +79,15 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
 
   return (
     // `group` lets the resize handles appear only while hovering the window.
-    <div className="group flex h-full flex-col overflow-hidden rounded border border-gray-300 bg-white shadow">
+    <div className="group flex h-full flex-col overflow-hidden rounded border border-line bg-surface shadow">
       <NodeResizer
         minWidth={200}
         minHeight={120}
-        lineClassName="!border-transparent"
-        handleClassName="!h-2.5 !w-2.5 !rounded-sm !border-gray-400 !bg-white opacity-0 group-hover:opacity-100"
+        lineClassName="border-transparent!"
+        handleClassName="h-2.5! w-2.5! rounded-sm! border-line! bg-surface! opacity-0 group-hover:opacity-100"
       />
       <div
-        className={`${DRAG_HANDLE_CLASS} relative flex cursor-move items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 ${docArmed ? 'outline-2 outline-dashed outline-blue-500' : ''}`}
+        className={`${DRAG_HANDLE_CLASS} relative flex cursor-move items-center justify-between border-b border-line bg-surface-2 px-2 py-1 text-xs text-muted ${docArmed ? 'outline-2 outline-dashed outline-accent' : ''}`}
       >
         {/* Document-level link ends attach here, at the header's left edge. */}
         <HighlightHandles id={documentHandleId(doc.id)} />
@@ -106,7 +95,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
         <span className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            className={`${headerButton} ${docArmed ? 'bg-blue-100' : ''}`}
+            className={`${headerButton} ${docArmed ? 'bg-accent-soft' : ''}`}
             title="Link this document: click to start or finish a link"
             onClick={() => clickLinkEnd(docEnd)}
           >
@@ -132,7 +121,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
             {highlights.filter((h) => h.start < h.end).map((h) => <HighlightHandles key={h.id} id={h.id} />)}
           </div>
           <textarea
-            className={`${textClasses} w-full resize-none outline-none`}
+            className={`${textClasses} w-full resize-none bg-transparent text-ink outline-none`}
             value={text}
             onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
             autoFocus
@@ -155,8 +144,8 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
               <span
                 key={seg.start}
                 data-hl={seg.highlightIds.join(' ')}
-                className={`${fresh.length ? 'relative' : ''} ${isSource ? 'outline-2 outline-dashed outline-blue-500' : ''} ${seg.highlightIds.length ? 'cursor-pointer' : ''}`}
-                style={toCss(styleForPresetIds(seg.presetIds, state.presets))}
+                className={`${fresh.length ? 'relative' : ''} ${isSource ? 'outline-2 outline-dashed outline-accent' : ''} ${seg.highlightIds.length ? 'cursor-pointer' : ''}`}
+                style={presetStyleToCss(styleForPresetIds(seg.presetIds, state.presets))}
               >
                 {fresh.map((h) => <HighlightHandles key={h} id={h} />)}
                 {seg.text}

@@ -27,11 +27,11 @@ export function Dialog({ title, onClose, children }: Props) {
       <div
         role="dialog"
         aria-label={title}
-        className="w-[36rem] max-w-[95vw] rounded border border-gray-300 bg-white p-4 shadow-lg"
+        className="w-[36rem] max-w-[95vw] rounded border border-line bg-surface p-4 shadow-lg"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-medium">{title}</h2>
-          <button type="button" className="rounded px-2 text-gray-500 hover:bg-gray-100" onClick={onClose}>
+          <button type="button" className="rounded px-2 text-muted hover:bg-surface-3" onClick={onClose}>
             ×
           </button>
         </div>
