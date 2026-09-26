@@ -1,0 +1,67 @@
+import { describe, expect, test } from 'vitest'
+import { CURRENT_VERSION, deserialize, serialize, validateState, wrap } from './envelope'
+import { seedState } from '../model/seed'
+
+describe('serialize / deserialize', () => {
+  test('round-trips the seed state', () => {
+    const result = deserialize(serialize(seedState))
+    expect(result).toEqual({ ok: true, state: seedState })
+  })
+
+  test('envelope carries app, version, and timestamp', () => {
+    const now = new Date('2026-09-26T12:00:00.000Z')
+    expect(wrap(seedState, now)).toMatchObject({
+      app: 'text-study',
+      version: CURRENT_VERSION,
+      savedAt: '2026-09-26T12:00:00.000Z',
+    })
+  })
+
+  test('rejects invalid JSON', () => {
+    expect(deserialize('{not json')).toEqual({ ok: false, error: 'Not valid JSON' })
+  })
+
+  test('rejects non-objects and foreign files', () => {
+    expect(deserialize('[]').ok).toBe(false)
+    expect(deserialize('{"app":"other","version":1,"state":{}}')).toEqual({
+      ok: false,
+      error: 'Not a Text Study file',
+    })
+  })
+
+  test('rejects a version newer than the app', () => {
+    const json = JSON.stringify({ ...wrap(seedState), version: CURRENT_VERSION + 1 })
+    expect(deserialize(json).ok).toBe(false)
+  })
+
+  test('rejects a malformed state and names the bad item', () => {
+    const bad = { ...seedState, highlights: [{ id: 'x' }] }
+    const json = JSON.stringify(wrap(bad as never))
+    expect(deserialize(json)).toEqual({ ok: false, error: 'highlights[0] is malformed' })
+  })
+})
+
+describe('validateState', () => {
+  test('accepts the empty state', () => {
+    expect(validateState({ documents: [], presets: [], highlights: [], links: [], layouts: [] })).toBeNull()
+  })
+
+  test('accepts optional fields when present and well-typed', () => {
+    const s = {
+      ...seedState,
+      highlights: [{ ...seedState.highlights[0], note: 'n' }],
+      layouts: [{ id: 'l', name: 'L', windows: [{ ...seedState.layouts[0].windows[0], range: { start: 0, end: 3 } }] }],
+    }
+    expect(validateState(s)).toBeNull()
+  })
+
+  test('rejects missing collections and wrong types', () => {
+    expect(validateState({})).toBe('documents must be an array')
+    expect(validateState({ ...seedState, presets: [{ id: 'p', name: 'P', style: { bold: 'yes' } }] })).toBe(
+      'presets[0] is malformed',
+    )
+    expect(validateState({ ...seedState, layouts: [{ id: 'l', name: 'L', windows: [{ id: 'w' }] }] })).toBe(
+      'layouts[0] is malformed',
+    )
+  })
+})
