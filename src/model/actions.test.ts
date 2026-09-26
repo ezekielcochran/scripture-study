@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  activePresetsFor,
   addHighlight,
   addLink,
   addPreset,
@@ -9,6 +10,7 @@ import {
   deleteDocument,
   deleteLink,
   deletePreset,
+  describeLinkEnd,
   editDocument,
   findOpenWindow,
   movePreset,
@@ -547,5 +549,33 @@ describe('document rename, delete, open-or-focus', () => {
     const next = openDocument(closed, 'L', 'd1', placement)
     expect(next.layouts[0].windows.map((w) => w.id)).toEqual(['w1r', 'w2', 'new'])
     expect(openDocument(two, 'nope', 'd1', placement)).toBe(two)
+  })
+})
+
+describe('queries', () => {
+  const s: State = {
+    ...base,
+    documents: [{ id: 'doc', title: 'Doc', text: 'In the beginning was the Word, and the Word was with God.', createdAt: 'c' }],
+    highlights: [
+      { id: 'a', documentId: 'doc', start: 0, end: 16, presetId: 'p1' },
+      { id: 'b', documentId: 'doc', start: 0, end: 16, presetId: 'p2' }, // same range, other preset
+      { id: 'c', documentId: 'doc', start: 4, end: 10, presetId: 'p2' }, // inside a
+      { id: 'd', documentId: 'doc', start: 21, end: 29, presetId: 'p1' }, // elsewhere
+    ],
+  }
+
+  test('activePresetsFor lists presets of highlights covering the armed range', () => {
+    expect([...activePresetsFor(s, 'a')].sort()).toEqual(['p1', 'p2'])
+    expect([...activePresetsFor(s, 'c')].sort()).toEqual(['p1', 'p2']) // a and b cover c
+    expect([...activePresetsFor(s, 'd')]).toEqual(['p1'])
+    expect(activePresetsFor(s, 'nope').size).toBe(0)
+  })
+
+  test('describeLinkEnd names documents and quotes highlight excerpts', () => {
+    expect(describeLinkEnd(s, { kind: 'document', id: 'doc' })).toBe('Doc')
+    expect(describeLinkEnd(s, { kind: 'highlight', id: 'a' })).toBe('“In the beginning” (Doc)')
+    expect(describeLinkEnd(s, { kind: 'highlight', id: 'a' }, 8)).toBe('“In the …” (Doc)')
+    expect(describeLinkEnd(s, { kind: 'document', id: 'x' })).toBe('(missing document)')
+    expect(describeLinkEnd(s, { kind: 'highlight', id: 'x' })).toBe('(missing highlight)')
   })
 })

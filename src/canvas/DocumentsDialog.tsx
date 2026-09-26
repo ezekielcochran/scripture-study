@@ -2,6 +2,8 @@ import { useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
 import {
   deleteDocument,
+  deleteLink,
+  describeLinkEnd,
   findOpenWindow,
   nextWindowPlacement,
   openDocument,
@@ -11,7 +13,7 @@ import {
 import type { Document } from '../model/types'
 import { Dialog } from './Dialog'
 
-/** List, retitle, open (or focus), and delete documents. Edits apply immediately. */
+/** List, retitle, open (or focus), and delete documents; list and delete links. Edits apply immediately. */
 export function DocumentsDialog({ onClose }: { onClose: () => void }) {
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
@@ -72,6 +74,28 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
               </li>
             )
           })}
+        </ul>
+      )}
+      <h3 className="mt-4 mb-1 text-sm font-medium">Links</h3>
+      {state.links.length === 0 ? (
+        <div className="text-sm text-muted">No links yet.</div>
+      ) : (
+        <ul className="max-h-60 space-y-1 overflow-auto text-sm">
+          {state.links.map((l) => (
+            <li key={l.id} className="flex items-center gap-2">
+              <span className="min-w-0 grow truncate">
+                {describeLinkEnd(state, l.from)} <span className="text-muted">→</span> {describeLinkEnd(state, l.to)}
+                {l.label && <span className="ml-2 text-xs text-muted">[{l.label}]</span>}
+              </span>
+              <button
+                type="button"
+                className={`${button} shrink-0 text-muted`}
+                onClick={() => update((s) => deleteLink(s, l.id))}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </Dialog>

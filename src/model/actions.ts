@@ -437,3 +437,33 @@ export function openDocument(state: State, layoutId: string, documentId: string,
   const existing = findOpenWindow(layout, documentId)
   return existing ? bringToFront(state, existing.id) : openWindow(state, layoutId, documentId, placement)
 }
+
+// ---- Queries -------------------------------------------------------------
+
+/**
+ * Presets whose key would remove a highlight if pressed with `highlightId`
+ * armed: those with a highlight of that preset covering the armed range.
+ */
+export function activePresetsFor(state: State, highlightId: string): Set<string> {
+  const armed = state.highlights.find((h) => h.id === highlightId)
+  if (!armed) return new Set()
+  return new Set(
+    state.highlights
+      .filter((h) => h.documentId === armed.documentId && h.start <= armed.start && h.end >= armed.end)
+      .map((h) => h.presetId),
+  )
+}
+
+/** Human-readable description of a link end, for lists. */
+export function describeLinkEnd(state: State, end: LinkEnd, excerptLength = 40): string {
+  if (end.kind === 'document') {
+    const doc = state.documents.find((d) => d.id === end.id)
+    return doc ? (doc.title ?? 'Untitled') : '(missing document)'
+  }
+  const h = state.highlights.find((x) => x.id === end.id)
+  const doc = h && state.documents.find((d) => d.id === h.documentId)
+  if (!h || !doc) return '(missing highlight)'
+  const raw = doc.text.slice(h.start, h.end).replace(/\s+/g, ' ').trim()
+  const excerpt = raw.length > excerptLength ? `${raw.slice(0, excerptLength - 1)}…` : raw
+  return `“${excerpt}” (${doc.title ?? 'Untitled'})`
+}
