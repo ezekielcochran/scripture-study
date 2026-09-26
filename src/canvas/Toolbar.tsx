@@ -13,6 +13,8 @@ export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [open, setOpen] = useState<Open>(null)
+  const canUndo = useStore((s) => s.history.past.length > 0)
+  const canRedo = useStore((s) => s.history.future.length > 0)
 
   function onExport() {
     downloadStateFile(useStore.getState().state)
@@ -36,6 +38,24 @@ export function Toolbar() {
     <>
       <Panel position="top-right" className="flex items-center gap-2">
         {message && <span className="text-xs text-gray-600">{message}</span>}
+        <button
+          type="button"
+          className={`${button} disabled:opacity-40`}
+          disabled={!canUndo}
+          title="Undo (⌘Z / Ctrl+Z)"
+          onClick={() => useStore.getState().undo()}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          className={`${button} disabled:opacity-40`}
+          disabled={!canRedo}
+          title="Redo (⇧⌘Z / Ctrl+Y)"
+          onClick={() => useStore.getState().redo()}
+        >
+          Redo
+        </button>
         <button type="button" className={button} onClick={() => setOpen('new')}>
           New document
         </button>

@@ -21,7 +21,8 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
   function show(doc: Document) {
     const existing = findOpenWindow(layout, doc.id)
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-    update((s) => openDocument(s, layout.id, doc.id, nextWindowPlacement(layout.windows, center)))
+    // Focusing an already-open window is not worth an undo step; opening a new one is.
+    update((s) => openDocument(s, layout.id, doc.id, nextWindowPlacement(layout.windows, center)), { skip: !!existing })
     if (existing) {
       // Pan to the window that was brought to the front, keeping the current zoom.
       void setCenter(existing.x + existing.width / 2, existing.y + existing.height / 2, {
@@ -57,7 +58,7 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
                   className={field}
                   value={doc.title ?? ''}
                   placeholder="Untitled"
-                  onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value))}
+                  onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value), { key: `title:${doc.id}` })}
                 />
                 <span className="w-24 shrink-0 truncate text-xs text-gray-400" title={doc.text}>
                   {doc.text.length} chars

@@ -1,6 +1,7 @@
 import type { Edge, Node, NodeChange } from '@xyflow/react'
 import type { Highlight, Layout, LinkEnd, State, Window } from '../model/types'
 import { bringToFront, moveWindow, resizeWindow } from '../model/actions'
+import type { RecordOptions } from '../store/history'
 
 export interface WindowNodeData {
   windowId: string
@@ -107,4 +108,18 @@ export function linksToEdges(state: State, layout: Layout): LinkEdge[] {
     }
   }
   return edges
+}
+
+/**
+ * How a batch of React Flow node changes should enter undo history:
+ * pure selection (bring-to-front) is skipped; a drag or resize coalesces into
+ * one step per window for as long as it continues.
+ */
+export function historyOptionsForChanges(changes: NodeChange<WindowNode>[]): RecordOptions {
+  for (const c of changes) {
+    if (c.type === 'position') return { key: `move:${c.id}`, within: Infinity }
+    if (c.type === 'dimensions' && c.resizing) return { key: `resize:${c.id}`, within: Infinity }
+  }
+  if (changes.length > 0 && changes.every((c) => c.type === 'select')) return { skip: true }
+  return {}
 }

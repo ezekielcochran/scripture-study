@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyNodeChangesToState, layoutToNodes, linksToEdges } from './layout'
+import { applyNodeChangesToState, historyOptionsForChanges, layoutToNodes, linksToEdges } from './layout'
 import type { State } from '../model/types'
 
 const hl = (id: string) => ({ kind: 'highlight' as const, id })
@@ -108,5 +108,19 @@ describe('linksToEdges', () => {
   test('skips links whose highlights are missing or not shown', () => {
     const noWindows = { ...linked, layouts: [{ id: 'L', name: 'L', windows: [] }] }
     expect(linksToEdges(noWindows, noWindows.layouts[0])).toEqual([])
+  })
+})
+
+describe('historyOptionsForChanges', () => {
+  test('drags and resizes coalesce per window; selection is skipped', () => {
+    expect(historyOptionsForChanges([{ type: 'position', id: 'a', position: { x: 1, y: 1 }, dragging: true }])).toEqual({
+      key: 'move:a',
+      within: Infinity,
+    })
+    expect(
+      historyOptionsForChanges([{ type: 'dimensions', id: 'a', dimensions: { width: 1, height: 1 }, resizing: true }]),
+    ).toEqual({ key: 'resize:a', within: Infinity })
+    expect(historyOptionsForChanges([{ type: 'select', id: 'a', selected: true }])).toEqual({ skip: true })
+    expect(historyOptionsForChanges([])).toEqual({})
   })
 })

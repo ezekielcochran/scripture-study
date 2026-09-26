@@ -68,7 +68,8 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     const edit = diffEdit(text, next, caret)
     if (!edit || !doc) return
     // The textarea shows the window's sub-range, so shift the edit into document offsets.
-    update((s) => editDocument(s, doc.id, { ...edit, position: edit.position + range.start }))
+    // Keystrokes in quick succession form one undo step.
+    update((s) => editDocument(s, doc.id, { ...edit, position: edit.position + range.start }), { key: `edit:${doc.id}` })
   }
 
   /** Click a highlight to start a link, click another end to finish it. */

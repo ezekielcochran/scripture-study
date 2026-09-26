@@ -4,6 +4,7 @@ import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import {
   applyNodeChangesToState,
+  historyOptionsForChanges,
   layoutToNodes,
   linksToEdges,
   type LinkEdge as LinkEdgeType,
@@ -14,6 +15,7 @@ import { LinkEdge } from './LinkEdge'
 import { PresetLegend } from './PresetLegend'
 import { Toolbar } from './Toolbar'
 import { useHighlightShortcuts } from './useHighlightShortcuts'
+import { useUndoShortcuts } from './useUndoShortcuts'
 
 // React Flow requires nodeTypes/edgeTypes to be stable references (defined once,
 // outside the component); otherwise it re-creates every node on each render.
@@ -31,6 +33,7 @@ export function Canvas() {
   const nodes = layoutToNodes(layout)
   const edges = linksToEdges(state, layout)
   useHighlightShortcuts()
+  useUndoShortcuts()
 
   // Escape cancels a pending link.
   useEffect(() => {
@@ -45,7 +48,8 @@ export function Canvas() {
   // Nodes are fully controlled: React Flow reports drags, resizes, and clicks as
   // changes, and we fold them into the State so the layout is the only source of truth.
   const onNodesChange = useCallback(
-    (changes: NodeChange<WindowNodeType>[]) => update((s) => applyNodeChangesToState(s, changes)),
+    (changes: NodeChange<WindowNodeType>[]) =>
+      update((s) => applyNodeChangesToState(s, changes), historyOptionsForChanges(changes)),
     [update],
   )
 

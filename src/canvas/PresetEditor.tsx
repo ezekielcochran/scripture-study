@@ -29,7 +29,9 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
     if (ok) update((s) => deletePreset(s, p.id))
   }
 
-  const setStyle = (p: Preset, style: PresetStyle) => update((s) => updatePreset(s, p.id, { style }))
+  // Colour pickers fire continuously while dragging; fold each into one step.
+  const setStyle = (p: Preset, style: PresetStyle) =>
+    update((s) => updatePreset(s, p.id, { style }), { key: `preset-style:${p.id}:${Object.keys(style).join()}` })
   const field = 'rounded border border-gray-300 px-1.5 py-0.5 text-sm focus:border-gray-500 focus:outline-none'
 
   return (
@@ -54,7 +56,7 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
                 <input
                   className={`${field} w-full`}
                   value={p.name}
-                  onChange={(e) => update((s) => updatePreset(s, p.id, { name: e.target.value }))}
+                  onChange={(e) => update((s) => updatePreset(s, p.id, { name: e.target.value }), { key: `preset-name:${p.id}` })}
                 />
               </td>
               <td className="py-1 pr-2">

@@ -4,7 +4,7 @@ import type { StorageAdapter } from './adapter'
 
 interface PersistableStore {
   state: State
-  replace: (next: State) => void
+  replace: (next: State, opts?: { skip?: boolean }) => void
 }
 
 export interface PersistenceHandle {
@@ -25,7 +25,8 @@ export async function startPersistence(
   debounceMs = 500,
 ): Promise<PersistenceHandle> {
   const loaded = await adapter.load()
-  if (loaded) store.getState().replace(loaded)
+  // Loading is not a user action, so it must not become an undo step.
+  if (loaded) store.getState().replace(loaded, { skip: true })
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let pending: State | null = null
