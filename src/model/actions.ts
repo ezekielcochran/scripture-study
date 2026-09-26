@@ -32,6 +32,32 @@ export function addHighlight(state: State, h: NewHighlight): State {
   return { ...state, highlights: [...state.highlights, highlight] }
 }
 
+/** Remove a highlight together with any links that reference it. */
+export function removeHighlight(state: State, id: string): State {
+  if (!state.highlights.some((h) => h.id === id)) return state
+  return {
+    ...state,
+    highlights: state.highlights.filter((h) => h.id !== id),
+    links: state.links.filter((l) => l.fromHighlightId !== id && l.toHighlightId !== id),
+  }
+}
+
+/**
+ * Keyboard toggle: if the range lies within an existing highlight of the same
+ * preset, remove that highlight; otherwise add a new one.
+ */
+export function toggleHighlight(state: State, h: NewHighlight): State {
+  const doc = state.documents.find((d) => d.id === h.documentId)
+  if (!doc) return state
+  const start = Math.max(0, h.start)
+  const end = Math.min(doc.text.length, h.end)
+  if (start >= end) return state
+  const existing = state.highlights.find(
+    (x) => x.documentId === h.documentId && x.presetId === h.presetId && x.start <= start && x.end >= end,
+  )
+  return existing ? removeHighlight(state, existing.id) : addHighlight(state, h)
+}
+
 /** Find the preset bound to a keyboard shortcut, if any. */
 export function presetForShortcut(presets: Preset[], key: string): Preset | undefined {
   return presets.find((p) => p.shortcut !== undefined && p.shortcut === key)

@@ -2,7 +2,13 @@ import { useCallback, useEffect } from 'react'
 import { ReactFlow, Background, MarkerType, Panel, type NodeChange } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
-import { applyNodeChangesToState, layoutToNodes, linksToEdges, type WindowNode as WindowNodeType } from '../lib/layout'
+import {
+  applyNodeChangesToState,
+  layoutToNodes,
+  linksToEdges,
+  type LinkEdge as LinkEdgeType,
+  type WindowNode as WindowNodeType,
+} from '../lib/layout'
 import { WindowNode } from './WindowNode'
 import { LinkEdge } from './LinkEdge'
 import { PresetLegend } from './PresetLegend'
@@ -20,6 +26,7 @@ export function Canvas() {
   const update = useStore((s) => s.update)
   const linkSource = useUiStore((s) => s.linkSource)
   const setLinkSource = useUiStore((s) => s.setLinkSource)
+  const setEditingLink = useUiStore((s) => s.setEditingLink)
   const layout = state.layouts[0]
   const nodes = layoutToNodes(layout)
   const edges = linksToEdges(state, layout)
@@ -50,6 +57,8 @@ export function Canvas() {
       edgeTypes={edgeTypes}
       defaultEdgeOptions={defaultEdgeOptions}
       onNodesChange={onNodesChange}
+      onEdgeClick={(_, edge) => setEditingLink((edge as LinkEdgeType).data?.linkId ?? null)}
+      onPaneClick={() => setEditingLink(null)}
       elevateNodesOnSelect={false}
       deleteKeyCode={null}
       minZoom={0.2}

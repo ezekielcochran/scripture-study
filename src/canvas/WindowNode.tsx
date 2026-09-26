@@ -6,7 +6,6 @@ import { flattenSegments } from '../lib/segments'
 import { styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
 import { addLink, closeWindow, editDocument } from '../model/actions'
-import { newId } from '../model/id'
 import type { PresetStyle } from '../model/types'
 import { DRAG_HANDLE_CLASS, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
@@ -42,7 +41,6 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   const update = useStore((s) => s.update)
   const linkSource = useUiStore((s) => s.linkSource)
   const setLinkSource = useUiStore((s) => s.setLinkSource)
-  const setEditingLink = useUiStore((s) => s.setEditingLink)
   const updateNodeInternals = useUpdateNodeInternals()
   // Edit mode is view state for this window only, so it lives here rather than in the store.
   const [editing, setEditing] = useState(false)
@@ -86,10 +84,8 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     } else if (linkSource === target) {
       setLinkSource(null)
     } else {
-      const id = newId('link')
-      update((s) => addLink(s, { id, fromHighlightId: linkSource, toHighlightId: target }))
+      update((s) => addLink(s, { fromHighlightId: linkSource, toHighlightId: target }))
       setLinkSource(null)
-      setEditingLink(id)
     }
   }
 

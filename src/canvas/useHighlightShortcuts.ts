@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from '../store/store'
-import { addHighlight, presetForShortcut } from '../model/actions'
+import { presetForShortcut, toggleHighlight } from '../model/actions'
 import { selectionToRange } from '../lib/selection'
 
 /** Attribute set on each window's text container so a selection can be traced back to its window. */
@@ -8,6 +8,7 @@ export const WINDOW_TEXT_ATTR = 'data-window-id'
 
 /**
  * Keyboard-first highlighting: select text in a window, press a preset's shortcut.
+ * Pressing it again on text inside that highlight removes it.
  * Installs one document-level keydown listener while the component is mounted.
  */
 export function useHighlightShortcuts() {
@@ -40,7 +41,7 @@ export function useHighlightShortcuts() {
       const base = win.range?.start ?? 0
       e.preventDefault()
       update((s) =>
-        addHighlight(s, {
+        toggleHighlight(s, {
           documentId: win.documentId,
           start: base + range.start,
           end: base + range.end,

@@ -13,9 +13,11 @@ import {
   nextWindowPlacement,
   openWindow,
   presetForShortcut,
+  removeHighlight,
   resizeWindow,
   setLinkLabel,
   shortcutConflict,
+  toggleHighlight,
   updatePreset,
 } from './actions'
 import type { State } from './types'
@@ -296,5 +298,40 @@ describe('links', () => {
     s = addLink(s, { fromHighlightId: 'h2', toHighlightId: 'h1', id: 'b' })
     expect(deleteLink(s, 'a').links.map((l) => l.id)).toEqual(['b'])
     expect(deleteLink(s, 'nope')).toBe(s)
+  })
+})
+
+describe('removeHighlight / toggleHighlight', () => {
+  const withData: State = {
+    ...base,
+    documents: [{ id: 'doc', text: '0123456789', createdAt: 'c' }],
+    highlights: [
+      { id: 'a', documentId: 'doc', start: 2, end: 8, presetId: 'p1' },
+      { id: 'b', documentId: 'doc', start: 4, end: 6, presetId: 'p2' },
+    ],
+    links: [{ id: 'l', fromHighlightId: 'a', toHighlightId: 'b' }],
+  }
+
+  test('removeHighlight drops the highlight and its links', () => {
+    const next = removeHighlight(withData, 'a')
+    expect(next.highlights.map((h) => h.id)).toEqual(['b'])
+    expect(next.links).toEqual([])
+    expect(removeHighlight(withData, 'nope')).toBe(withData)
+  })
+
+  test('toggle removes an existing highlight of the same preset covering the range', () => {
+    const exact = toggleHighlight(withData, { documentId: 'doc', start: 2, end: 8, presetId: 'p1' })
+    expect(exact.highlights.map((h) => h.id)).toEqual(['b'])
+    const inside = toggleHighlight(withData, { documentId: 'doc', start: 3, end: 5, presetId: 'p1' })
+    expect(inside.highlights.map((h) => h.id)).toEqual(['b'])
+    expect(inside.links).toEqual([])
+  })
+
+  test('toggle adds when the preset differs or the range is not covered', () => {
+    const other = toggleHighlight(withData, { documentId: 'doc', start: 2, end: 8, presetId: 'p2', id: 'n' })
+    expect(other.highlights.map((h) => h.id)).toEqual(['a', 'b', 'n'])
+    const wider = toggleHighlight(withData, { documentId: 'doc', start: 1, end: 9, presetId: 'p1', id: 'w' })
+    expect(wider.highlights.map((h) => h.id)).toEqual(['a', 'b', 'w'])
+    expect(toggleHighlight(withData, { documentId: 'doc', start: 5, end: 5, presetId: 'p1' })).toBe(withData)
   })
 })
