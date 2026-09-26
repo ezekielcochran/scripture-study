@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyNodeChangesToState, layoutToNodes } from './layout'
+import { applyNodeChangesToState, layoutToNodes, linksToEdges } from './layout'
 import type { State } from '../model/types'
 
 const state: State = {
@@ -44,8 +44,53 @@ describe('applyNodeChangesToState', () => {
 
   test('selecting brings to front; deselecting and removal are ignored', () => {
     const next = applyNodeChangesToState(state, [{ type: 'select', id: 'a', selected: true }])
-    expect(windows(next)[0].z).toBe(3)
+    expect(windows(next).map((w) => w.z)).toEqual([2, 1])
     expect(applyNodeChangesToState(state, [{ type: 'select', id: 'a', selected: false }])).toBe(state)
     expect(applyNodeChangesToState(state, [{ type: 'remove', id: 'a' }])).toBe(state)
+  })
+})
+
+describe('linksToEdges', () => {
+  const linked: State = {
+    ...state,
+    documents: [
+      { id: 'doc', text: '0123456789', createdAt: 'c' },
+      { id: 'doc2', text: 'abc', createdAt: 'c' },
+    ],
+    highlights: [
+      { id: 'h1', documentId: 'doc', start: 0, end: 2, presetId: 'p' },
+      { id: 'h2', documentId: 'doc', start: 8, end: 10, presetId: 'p' },
+      { id: 'h3', documentId: 'doc2', start: 0, end: 1, presetId: 'p' },
+    ],
+    links: [
+      { id: 'l1', fromHighlightId: 'h1', toHighlightId: 'h3', label: 'cf.' },
+      { id: 'l2', fromHighlightId: 'h2', toHighlightId: 'h1' },
+      { id: 'dangling', fromHighlightId: 'h1', toHighlightId: 'gone' },
+    ],
+    layouts: [
+      {
+        id: 'L',
+        name: 'L',
+        windows: [
+          { id: 'a', documentId: 'doc', x: 0, y: 0, width: 1, height: 1, z: 1 },
+          { id: 'b', documentId: 'doc2', x: 0, y: 0, width: 1, height: 1, z: 2 },
+          // Shows only the first half of doc, so h2 is not visible here.
+          { id: 'c', documentId: 'doc', range: { start: 0, end: 5 }, x: 0, y: 0, width: 1, height: 1, z: 3 },
+        ],
+      },
+    ],
+  }
+
+  test('produces an edge per window pair showing both ends, with handles per highlight', () => {
+    const edges = linksToEdges(linked, linked.layouts[0])
+    expect(edges.map((e) => e.id).sort()).toEqual(['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c'].sort())
+    const e = edges.find((x) => x.id === 'l1:a:b')!
+    expect(e).toMatchObject({ type: 'link', source: 'a', sourceHandle: 'h1', target: 'b', targetHandle: 'h3', data: { linkId: 'l1', label: 'cf.' } })
+    expect(edges.find((x) => x.id === 'l2:a:a')!.data).toEqual({ linkId: 'l2' })
+  })
+
+  test('skips links whose highlights are missing or not shown', () => {
+    const noWindows = { ...linked, layouts: [{ id: 'L', name: 'L', windows: [] }] }
+    expect(linksToEdges(noWindows, noWindows.layouts[0])).toEqual([])
   })
 })

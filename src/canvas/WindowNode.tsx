@@ -1,10 +1,12 @@
-import { useState, type CSSProperties } from 'react'
-import { NodeResizer, type NodeProps } from '@xyflow/react'
+import { useLayoutEffect, useState, type CSSProperties, type MouseEvent } from 'react'
+import { Handle, NodeResizer, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { useStore } from '../store/store'
+import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
 import { styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { closeWindow, editDocument } from '../model/actions'
+import { addLink, closeWindow, editDocument } from '../model/actions'
+import { newId } from '../model/id'
 import type { PresetStyle } from '../model/types'
 import { DRAG_HANDLE_CLASS, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
@@ -21,20 +23,48 @@ function toCss(s: PresetStyle): CSSProperties {
 
 const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
 const headerButton = 'rounded px-1.5 py-0.5 hover:bg-gray-200'
+// Edges attach here. Invisible and not connectable: links are made by clicking highlights.
+const handleStyle: CSSProperties = { width: 1, height: 1, minWidth: 0, minHeight: 0, opacity: 0, border: 0, pointerEvents: 'none' }
 
-export function WindowNode({ data }: NodeProps<WindowNodeType>) {
+/** Invisible source and target handles for one highlight, placed at the start of its first span. */
+function HighlightHandles({ id }: { id: string }) {
+  return (
+    <>
+      <Handle type="source" position={Position.Left} id={id} isConnectable={false} style={handleStyle} />
+      <Handle type="target" position={Position.Left} id={id} isConnectable={false} style={handleStyle} />
+    </>
+  )
+}
+
+export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   // Selector-style subscription: the node re-renders only when the State object changes.
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
+  const linkSource = useUiStore((s) => s.linkSource)
+  const setLinkSource = useUiStore((s) => s.setLinkSource)
+  const setEditingLink = useUiStore((s) => s.setEditingLink)
+  const updateNodeInternals = useUpdateNodeInternals()
   // Edit mode is view state for this window only, so it lives here rather than in the store.
   const [editing, setEditing] = useState(false)
 
   const win = state.layouts.flatMap((l) => l.windows).find((w) => w.id === data.windowId)
   const doc = win && state.documents.find((d) => d.id === win.documentId)
-  if (!win || !doc) return <div className="p-2 text-red-600">Missing window or document</div>
+  const range = win?.range ?? { start: 0, end: doc?.text.length ?? 0 }
+  const text = doc ? doc.text.slice(range.start, range.end) : ''
+  const highlights = doc
+    ? state.highlights
+        .filter((h) => h.documentId === doc.id)
+        .map((h) => ({ ...h, start: h.start - range.start, end: h.end - range.start }))
+    : []
+  const segments = flattenSegments(text, highlights)
 
-  const range = win.range ?? { start: 0, end: doc.text.length }
-  const text = doc.text.slice(range.start, range.end)
+  // useLayoutEffect: handle positions move whenever the text reflows, so tell React Flow
+  // to re-measure them after this render commits and before the edges are painted.
+  useLayoutEffect(() => {
+    updateNodeInternals(nodeId)
+  }, [nodeId, updateNodeInternals, text, state.highlights, win?.width, win?.height, editing])
+
+  if (!win || !doc) return <div className="p-2 text-red-600">Missing window or document</div>
 
   function onTextChange(next: string, caret: number) {
     const edit = diffEdit(text, next, caret)
@@ -42,6 +72,29 @@ export function WindowNode({ data }: NodeProps<WindowNodeType>) {
     // The textarea shows the window's sub-range, so shift the edit into document offsets.
     update((s) => editDocument(s, doc.id, { ...edit, position: edit.position + range.start }))
   }
+
+  /** Click a highlight to start a link, click another to finish it. */
+  function onTextClick(e: MouseEvent<HTMLDivElement>) {
+    // A click that ends a drag-selection is not a link click.
+    if (!window.getSelection()?.isCollapsed) return
+    const span = (e.target as HTMLElement).closest<HTMLElement>('span[data-hl]')
+    const ids = span?.dataset.hl?.split(' ').filter(Boolean) ?? []
+    if (ids.length === 0) return
+    const target = ids[ids.length - 1] // innermost highlight wins
+    if (linkSource === null) {
+      setLinkSource(target)
+    } else if (linkSource === target) {
+      setLinkSource(null)
+    } else {
+      const id = newId('link')
+      update((s) => addLink(s, { id, fromHighlightId: linkSource, toHighlightId: target }))
+      setLinkSource(null)
+      setEditingLink(id)
+    }
+  }
+
+  // Which highlights get their handles on which segment: the first segment that contains them.
+  const anchored = new Set<string>()
 
   return (
     // `group` lets the resize handles appear only while hovering the window.
@@ -71,29 +124,43 @@ export function WindowNode({ data }: NodeProps<WindowNodeType>) {
         </span>
       </div>
       {editing ? (
-        <textarea
-          className={`${textClasses} w-full resize-none outline-none`}
-          value={text}
-          onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
-          autoFocus
-        />
+        <>
+          {/* While editing there are no spans to anchor to, so edges point at the window's corner. */}
+          <div className="relative h-0 w-0">
+            {highlights.filter((h) => h.start < h.end).map((h) => <HighlightHandles key={h.id} id={h.id} />)}
+          </div>
+          <textarea
+            className={`${textClasses} w-full resize-none outline-none`}
+            value={text}
+            onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
+            autoFocus
+          />
+        </>
       ) : (
         // nowheel: React Flow class name that stops canvas zooming inside this element so it
         // can scroll instead. Only the header drags, so text selection works here.
         <div
           {...{ [WINDOW_TEXT_ATTR]: win.id }}
           className={`${textClasses} cursor-text select-text overflow-auto`}
+          onClick={onTextClick}
+          onScroll={() => updateNodeInternals(nodeId)}
         >
-          {flattenSegments(
-            text,
-            state.highlights
-              .filter((h) => h.documentId === doc.id)
-              .map((h) => ({ ...h, start: h.start - range.start, end: h.end - range.start })),
-          ).map((seg) => (
-            <span key={seg.start} style={toCss(styleForPresetIds(seg.presetIds, state.presets))}>
-              {seg.text}
-            </span>
-          ))}
+          {segments.map((seg) => {
+            const fresh = seg.highlightIds.filter((h) => !anchored.has(h))
+            fresh.forEach((h) => anchored.add(h))
+            const isSource = linkSource !== null && seg.highlightIds.includes(linkSource)
+            return (
+              <span
+                key={seg.start}
+                data-hl={seg.highlightIds.join(' ')}
+                className={`${fresh.length ? 'relative' : ''} ${isSource ? 'outline-2 outline-dashed outline-blue-500' : ''} ${seg.highlightIds.length ? 'cursor-pointer' : ''}`}
+                style={toCss(styleForPresetIds(seg.presetIds, state.presets))}
+              >
+                {fresh.map((h) => <HighlightHandles key={h} id={h} />)}
+                {seg.text}
+              </span>
+            )
+          })}
         </div>
       )}
     </div>

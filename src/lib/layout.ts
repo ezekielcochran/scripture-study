@@ -1,5 +1,5 @@
-import type { Node, NodeChange } from '@xyflow/react'
-import type { Layout, State } from '../model/types'
+import type { Edge, Node, NodeChange } from '@xyflow/react'
+import type { Highlight, Layout, State, Window } from '../model/types'
 import { bringToFront, moveWindow, resizeWindow } from '../model/actions'
 
 export interface WindowNodeData {
@@ -43,4 +43,53 @@ export function applyNodeChangesToState(state: State, changes: NodeChange<Window
     }
   }
   return next
+}
+
+export interface LinkEdgeData {
+  linkId: string
+  label?: string
+  [key: string]: unknown
+}
+
+export type LinkEdge = Edge<LinkEdgeData, 'link'>
+
+/**
+ * Edges and their labels render above every window (window z values are kept
+ * small by bringToFront). The edge label layer gets the same value in index.css.
+ */
+export const EDGE_Z_INDEX = 10000
+
+/** Does the window show any part of the highlight? */
+function windowShows(w: Window, h: Highlight): boolean {
+  return w.documentId === h.documentId && (!w.range || (h.start < w.range.end && h.end > w.range.start))
+}
+
+/**
+ * One edge per link for every pair of windows showing its two highlights.
+ * Edges attach to the per-highlight handles rendered inside each window node.
+ * Links whose highlights are not visible in any window produce no edges.
+ */
+export function linksToEdges(state: State, layout: Layout): LinkEdge[] {
+  const byId = new Map(state.highlights.map((h) => [h.id, h]))
+  const edges: LinkEdge[] = []
+  for (const link of state.links) {
+    const from = byId.get(link.fromHighlightId)
+    const to = byId.get(link.toHighlightId)
+    if (!from || !to) continue
+    for (const a of layout.windows.filter((w) => windowShows(w, from))) {
+      for (const b of layout.windows.filter((w) => windowShows(w, to))) {
+        edges.push({
+          id: `${link.id}:${a.id}:${b.id}`,
+          type: 'link',
+          zIndex: EDGE_Z_INDEX,
+          source: a.id,
+          sourceHandle: from.id,
+          target: b.id,
+          targetHandle: to.id,
+          data: { linkId: link.id, ...(link.label ? { label: link.label } : {}) },
+        })
+      }
+    }
+  }
+  return edges
 }

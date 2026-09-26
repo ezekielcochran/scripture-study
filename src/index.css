@@ -7,3 +7,8 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* Keep link labels above window nodes; matches EDGE_Z_INDEX in src/lib/layout.ts. */
+.react-flow__edgelabel-renderer {
+  z-index: 10000;
+}

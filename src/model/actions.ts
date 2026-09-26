@@ -1,4 +1,4 @@
-import type { Document, Highlight, Layout, Preset, PresetStyle, State, Window } from './types'
+import type { Document, Highlight, Layout, Link, Preset, PresetStyle, State, Window } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
 
@@ -225,14 +225,25 @@ export function resizeWindow(state: State, windowId: string, size: { width: numb
   return mapWindow(state, windowId, (w) => ({ ...w, width: size.width, height: size.height }))
 }
 
-/** Give the window the highest z in its layout. No change if it is already on top. */
+/**
+ * Give the window the highest z in its layout, renumbering the others compactly
+ * from 1 so z values stay small. No change if it is already alone on top.
+ */
 export function bringToFront(state: State, windowId: string): State {
   const layout = state.layouts.find((l) => l.windows.some((w) => w.id === windowId))
   if (!layout) return state
   const top = Math.max(...layout.windows.map((w) => w.z))
   const win = layout.windows.find((w) => w.id === windowId)!
   if (win.z === top && layout.windows.filter((w) => w.z === top).length === 1) return state
-  return mapWindow(state, windowId, (w) => ({ ...w, z: top + 1 }))
+  const order = [...layout.windows].sort((a, b) => a.z - b.z).filter((w) => w.id !== windowId)
+  order.push(win)
+  const z = new Map(order.map((w, i) => [w.id, i + 1]))
+  return {
+    ...state,
+    layouts: state.layouts.map((l) =>
+      l.id === layout.id ? { ...l, windows: l.windows.map((w) => ({ ...w, z: z.get(w.id)! })) } : l,
+    ),
+  }
 }
 
 /** Remove a window. The document and its highlights are untouched. */
@@ -264,4 +275,49 @@ export function openWindow(state: State, layoutId: string, documentId: string, p
     ...state,
     layouts: state.layouts.map((l) => (l.id === layoutId ? { ...l, windows: [...l.windows, window] } : l)),
   }
+}
+
+// ---- Links ---------------------------------------------------------------
+
+export interface NewLink {
+  fromHighlightId: string
+  toHighlightId: string
+  label?: string
+  id?: string
+}
+
+/** Link two distinct existing highlights. An identical link (same direction) is not added twice. */
+export function addLink(state: State, l: NewLink): State {
+  if (l.fromHighlightId === l.toHighlightId) return state
+  const ids = new Set(state.highlights.map((h) => h.id))
+  if (!ids.has(l.fromHighlightId) || !ids.has(l.toHighlightId)) return state
+  if (state.links.some((x) => x.fromHighlightId === l.fromHighlightId && x.toHighlightId === l.toHighlightId)) {
+    return state
+  }
+  const link: Link = {
+    id: l.id ?? newId('link'),
+    fromHighlightId: l.fromHighlightId,
+    toHighlightId: l.toHighlightId,
+    ...(l.label?.trim() ? { label: l.label.trim() } : {}),
+  }
+  return { ...state, links: [...state.links, link] }
+}
+
+/** Set a link's label; an empty label removes it. */
+export function setLinkLabel(state: State, id: string, label: string): State {
+  if (!state.links.some((l) => l.id === id)) return state
+  const trimmed = label.trim()
+  return {
+    ...state,
+    links: state.links.map((l) => {
+      if (l.id !== id) return l
+      const { label: _old, ...rest } = l
+      return trimmed ? { ...rest, label: trimmed } : rest
+    }),
+  }
+}
+
+export function deleteLink(state: State, id: string): State {
+  if (!state.links.some((l) => l.id === id)) return state
+  return { ...state, links: state.links.filter((l) => l.id !== id) }
 }
