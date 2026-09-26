@@ -4,8 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig(({ command }) => ({
-  // Deployed at <site>/study/. The dev server stays at the root for convenience.
-  base: command === 'build' ? '/study/' : '/',
+  // Relative asset paths so the build works from any folder on the host
+  // (currently people.cs.vt.edu/ecochran/study/). The dev server stays at the root.
+  base: command === 'build' ? './' : '/',
   plugins: [react(), tailwindcss()],
   test: {
     // Pure modules only; no DOM needed for now.
