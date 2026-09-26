@@ -45,7 +45,7 @@ A window shows a whole document or a sub-range of one. A layout is a saved arran
 
 - **Segment flattening.** Given `text` and the highlights over it, produce an ordered list of non-overlapping segments, each carrying the set of presets that cover it. This is what the renderer consumes. Test with nested, overlapping, adjacent, and zero-length cases.
 - **Selection to range.** Map a browser text selection inside a rendered window back to `{ documentId, start, end }` offsets into the original text, regardless of how many styled spans the DOM contains. Test with selections that cross existing highlight boundaries.
-- **Style merging.** When multiple presets cover a segment, combine them deterministically (define and document the precedence rule).
+- **Style merging.** When multiple presets cover a segment, combine them deterministically. Rule: properties that can combine (bold, italic, underline) all apply; where presets contradict (both set `color`, or both set `background`) the preset earlier in the `presets` list wins, so list order is the priority order.
 - **Range adjustment on edit.** Given an edit `{ position, deletedLength, insertedText }` and the ranges over a document (highlights and window sub-ranges), return the adjusted ranges. Test edits before, inside, spanning, and after a range, and edits that delete a range completely.
 
 ## Conventions

@@ -11,6 +11,7 @@ import {
   deletePreset,
   editDocument,
   findOpenWindow,
+  movePreset,
   moveWindow,
   nextWindowPlacement,
   openDocument,
@@ -210,6 +211,16 @@ describe('presets', () => {
     next = updatePreset(next, 'p1', { shortcut: 'q' })
     expect(next.presets[0].shortcut).toBe('q')
     expect(updatePreset(base, 'nope', { name: 'x' })).toBe(base)
+  })
+
+  test('movePreset reorders within bounds', () => {
+    const three = addPreset(base, { name: 'C', style: {}, id: 'p3' })
+    const ids = (s: State) => s.presets.map((p) => p.id)
+    expect(ids(movePreset(three, 'p3', -1))).toEqual(['p1', 'p3', 'p2'])
+    expect(ids(movePreset(three, 'p3', -5))).toEqual(['p3', 'p1', 'p2'])
+    expect(ids(movePreset(three, 'p1', 1))).toEqual(['p2', 'p1', 'p3'])
+    expect(movePreset(three, 'p3', 1)).toBe(three)
+    expect(movePreset(three, 'nope', -1)).toBe(three)
   })
 
   test('deletePreset removes its highlights and their links', () => {

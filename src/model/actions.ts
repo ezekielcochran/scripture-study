@@ -220,6 +220,21 @@ export function updatePreset(
   }
 }
 
+/**
+ * Move a preset up (delta < 0) or down (delta > 0) the list. List order is the
+ * priority used to resolve conflicting styles where highlights overlap.
+ */
+export function movePreset(state: State, id: string, delta: number): State {
+  const from = state.presets.findIndex((p) => p.id === id)
+  if (from === -1) return state
+  const to = Math.min(Math.max(from + delta, 0), state.presets.length - 1)
+  if (to === from) return state
+  const presets = [...state.presets]
+  const [p] = presets.splice(from, 1)
+  presets.splice(to, 0, p)
+  return { ...state, presets }
+}
+
 /** Remove a preset together with every highlight that uses it and those highlights' links. */
 export function deletePreset(state: State, id: string): State {
   if (!state.presets.some((p) => p.id === id)) return state

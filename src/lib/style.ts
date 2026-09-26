@@ -19,15 +19,17 @@ export function mergeStyles(styles: PresetStyle[]): PresetStyle {
   return out
 }
 
-/** Look up presets by id (unknown ids are ignored) and merge their styles in order. */
+/**
+ * Combined style for the presets covering a segment. Priority is the preset
+ * list order: when two presets contradict (both set `color`, or both set
+ * `background`), the one earlier in the list wins. Flags still combine.
+ * Unknown ids are ignored; the order of `presetIds` does not matter.
+ */
 export function styleForPresetIds(presetIds: string[], presets: Preset[]): PresetStyle {
-  const byId = new Map(presets.map((p) => [p.id, p]))
-  const styles: PresetStyle[] = []
-  for (const id of presetIds) {
-    const p = byId.get(id)
-    if (p) styles.push(p.style)
-  }
-  return mergeStyles(styles)
+  const wanted = new Set(presetIds)
+  // List order is priority order; merge lowest priority first so the highest applies last.
+  const inPriority = presets.filter((p) => wanted.has(p.id)).reverse()
+  return mergeStyles(inPriority.map((p) => p.style))
 }
 
 /**

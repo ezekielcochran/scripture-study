@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store/store'
-import { addPreset, deletePreset, shortcutConflict, updatePreset } from '../model/actions'
+import { addPreset, deletePreset, movePreset, shortcutConflict, updatePreset } from '../model/actions'
 import type { Preset, PresetStyle } from '../model/types'
 import { Dialog } from './Dialog'
 
@@ -36,9 +36,14 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog title="Presets" onClose={onClose}>
+      <p className="mb-2 text-xs text-muted">
+        Where highlights overlap, their styles combine. If two presets contradict (both set a text colour, or both a
+        fill), the one higher in this list wins.
+      </p>
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-muted">
           <tr>
+            <th />
             <th className="pb-1 font-normal">Name</th>
             <th className="pb-1 font-normal">Key</th>
             <th className="pb-1 font-normal">Text</th>
@@ -50,8 +55,30 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
           </tr>
         </thead>
         <tbody>
-          {presets.map((p) => (
+          {presets.map((p, i) => (
             <tr key={p.id} className="align-middle">
+              <td className="py-1 pr-1">
+                <span className="flex flex-col leading-none">
+                  <button
+                    type="button"
+                    className="rounded px-1 text-xs text-muted hover:bg-surface-3 disabled:opacity-30"
+                    title="Move up (higher priority)"
+                    disabled={i === 0}
+                    onClick={() => update((s) => movePreset(s, p.id, -1))}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded px-1 text-xs text-muted hover:bg-surface-3 disabled:opacity-30"
+                    title="Move down (lower priority)"
+                    disabled={i === presets.length - 1}
+                    onClick={() => update((s) => movePreset(s, p.id, 1))}
+                  >
+                    ▼
+                  </button>
+                </span>
+              </td>
               <td className="py-1 pr-2">
                 <input
                   className={`${field} w-full`}
