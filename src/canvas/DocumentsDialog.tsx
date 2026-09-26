@@ -4,7 +4,9 @@ import {
   deleteDocument,
   deleteLink,
   describeLinkEnd,
+  documentLabel,
   findOpenWindow,
+  isNote,
   nextWindowPlacement,
   openDocument,
   pruneLinks,
@@ -38,7 +40,7 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
   function remove(doc: Document) {
     const ids = new Set(state.highlights.filter((h) => h.documentId === doc.id).map((h) => h.id))
     const links = state.links.length - pruneLinks(state.links, { highlights: ids, documents: new Set([doc.id]) }).length
-    const name = doc.title ?? 'Untitled'
+    const name = documentLabel(doc)
     const detail = ids.size || links ? ` ${ids.size} highlight(s) and ${links} link(s) will be removed.` : ''
     if (window.confirm(`Delete "${name}"?${detail}`)) update((s) => deleteDocument(s, doc.id))
   }
@@ -46,35 +48,48 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
   const field = 'w-full rounded border border-line bg-surface px-2 py-1 text-ink text-sm focus:border-muted focus:outline-none'
   const button = 'rounded border border-line px-2 py-1 text-sm hover:bg-surface-3'
 
+  function section(docs: Document[], emptyText: string, placeholder: string) {
+    if (docs.length === 0) return <div className="text-sm text-muted">{emptyText}</div>
+    return (
+      <ul className="space-y-2">
+        {docs.map((doc) => {
+          const open = findOpenWindow(layout, doc.id) !== undefined
+          return (
+            <li key={doc.id} className="flex items-center gap-2">
+              <input
+                className={field}
+                value={doc.title ?? ''}
+                placeholder={placeholder}
+                onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value), { key: `title:${doc.id}` })}
+              />
+              <span className="w-24 shrink-0 truncate text-xs text-muted" title={doc.text}>
+                {doc.text.length} chars
+              </span>
+              <button type="button" className={`${button} w-16 shrink-0`} onClick={() => show(doc)}>
+                {open ? 'Show' : 'Open'}
+              </button>
+              <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => remove(doc)}>
+                Delete
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
+
   return (
     <Dialog title="Documents" onClose={onClose}>
-      {state.documents.length === 0 ? (
-        <div className="text-sm text-muted">No documents yet.</div>
-      ) : (
-        <ul className="space-y-2">
-          {state.documents.map((doc) => {
-            const open = findOpenWindow(layout, doc.id) !== undefined
-            return (
-              <li key={doc.id} className="flex items-center gap-2">
-                <input
-                  className={field}
-                  value={doc.title ?? ''}
-                  placeholder="Untitled"
-                  onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value), { key: `title:${doc.id}` })}
-                />
-                <span className="w-24 shrink-0 truncate text-xs text-muted" title={doc.text}>
-                  {doc.text.length} chars
-                </span>
-                <button type="button" className={`${button} w-16 shrink-0`} onClick={() => show(doc)}>
-                  {open ? 'Show' : 'Open'}
-                </button>
-                <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => remove(doc)}>
-                  Delete
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+      {section(
+        state.documents.filter((d) => !isNote(d)),
+        'No documents yet.',
+        'Untitled',
+      )}
+      <h3 className="mt-4 mb-1 text-sm font-medium">Notes</h3>
+      {section(
+        state.documents.filter(isNote),
+        'No notes yet. Use a window’s Note button to add one.',
+        'Untitled note',
       )}
       <h3 className="mt-4 mb-1 text-sm font-medium">Links</h3>
       {state.links.length === 0 ? (

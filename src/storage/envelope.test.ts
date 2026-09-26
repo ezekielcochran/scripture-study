@@ -88,6 +88,10 @@ describe('validateState', () => {
 
   test('rejects missing collections and wrong types', () => {
     expect(validateState({})).toBe('documents must be an array')
+    expect(validateState({ ...seedState, documents: [{ id: 'd', text: 't', createdAt: 'c', kind: 'memo' }] })).toBe(
+      'documents[0] is malformed',
+    )
+    expect(validateState({ ...seedState, documents: [{ id: 'd', text: 't', createdAt: 'c', kind: 'note' }] })).toBeNull()
     expect(validateState({ ...seedState, presets: [{ id: 'p', name: 'P', style: { bold: 'yes' } }] })).toBe(
       'presets[0] is malformed',
     )

@@ -5,10 +5,11 @@ import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
 import { presetStyleToCss, styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { closeWindow, editDocument } from '../model/actions'
+import { closeWindow, documentLabel, editDocument, isNote } from '../model/actions'
 import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 import { clickLinkEnd, isArmed } from './linking'
+import { NewDocumentDialog } from './NewDocumentDialog'
 
 const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
 const headerButton = 'rounded px-1.5 py-0.5 hover:bg-surface-3'
@@ -33,6 +34,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   const updateNodeInternals = useUpdateNodeInternals()
   // Edit mode is view state for this window only, so it lives here rather than in the store.
   const [editing, setEditing] = useState(false)
+  const [notingAbout, setNotingAbout] = useState(false)
 
   const win = state.layouts.flatMap((l) => l.windows).find((w) => w.id === data.windowId)
   const doc = win && state.documents.find((d) => d.id === win.documentId)
@@ -79,7 +81,11 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
 
   return (
     // `group` lets the resize handles appear only while hovering the window.
-    <div className="group flex h-full flex-col overflow-hidden rounded border border-line bg-surface shadow">
+    <div
+      className={`group flex h-full flex-col overflow-hidden rounded border border-line shadow ${
+        isNote(doc) ? 'bg-note' : 'bg-surface'
+      }`}
+    >
       <NodeResizer
         minWidth={200}
         minHeight={120}
@@ -87,11 +93,13 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
         handleClassName="h-2.5! w-2.5! rounded-sm! border-line! bg-surface! opacity-0 group-hover:opacity-100"
       />
       <div
-        className={`${DRAG_HANDLE_CLASS} relative flex cursor-move items-center justify-between border-b border-line bg-surface-2 px-2 py-1 text-xs text-muted ${docArmed ? 'outline-2 outline-dashed outline-accent' : ''}`}
+        className={`${DRAG_HANDLE_CLASS} relative flex cursor-move items-center justify-between border-b border-line px-2 py-1 text-xs text-muted ${
+          isNote(doc) ? 'bg-note-2' : 'bg-surface-2'
+        } ${docArmed ? 'outline-2 outline-dashed outline-accent' : ''}`}
       >
         {/* Document-level link ends attach here, at the header's left edge. */}
         <HighlightHandles id={documentHandleId(doc.id)} />
-        <span className="truncate font-medium">{doc.title ?? 'Untitled'}</span>
+        <span className="truncate font-medium">{documentLabel(doc)}</span>
         <span className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -100,6 +108,14 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
             onClick={() => clickLinkEnd(docEnd)}
           >
             Link
+          </button>
+          <button
+            type="button"
+            className={headerButton}
+            title="Create a note linked to this document"
+            onClick={() => setNotingAbout(true)}
+          >
+            Note
           </button>
           <button type="button" className={headerButton} onClick={() => setEditing((e) => !e)}>
             {editing ? 'Done' : 'Edit'}
@@ -114,6 +130,9 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
           </button>
         </span>
       </div>
+      {notingAbout && (
+        <NewDocumentDialog note={{ aboutDocumentId: doc.id, source: win }} onClose={() => setNotingAbout(false)} />
+      )}
       {editing ? (
         <>
           {/* While editing there are no spans to anchor to, so edges point at the window's corner. */}

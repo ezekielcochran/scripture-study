@@ -6,6 +6,8 @@ export interface Document {
   title?: string
   text: string
   createdAt: string // ISO 8601
+  /** Notes are documents shown in translucent yellow windows; absent means a regular document. */
+  kind?: 'note'
 }
 
 export interface PresetStyle {

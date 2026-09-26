@@ -23,6 +23,8 @@
   --warn-line: #a83a2e;
   --warn-ink: #7a2419;
   --link: #b9aca6;
+  --note: rgb(252 244 190 / 0.88);
+  --note-2: rgb(244 231 150 / 0.92);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +44,8 @@
     --warn-line: #d86a5c;
     --warn-ink: #f6d3cd;
     --link: #7d6d68;
+    --note: rgb(96 84 40 / 0.88);
+    --note-2: rgb(116 102 46 / 0.92);
   }
 }
 
@@ -60,6 +64,8 @@
   --color-warn-bg: var(--warn-bg);
   --color-warn-line: var(--warn-line);
   --color-warn-ink: var(--warn-ink);
+  --color-note: var(--note);
+  --color-note-2: var(--note-2);
 }
 
 html,

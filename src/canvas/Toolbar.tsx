@@ -56,14 +56,14 @@ export function Toolbar() {
         >
           Redo
         </button>
+        <button type="button" className={button} onClick={() => setOpen('presets')}>
+          Presets
+        </button>
         <button type="button" className={button} onClick={() => setOpen('new')}>
           New document
         </button>
         <button type="button" className={button} onClick={() => setOpen('documents')}>
           Documents
-        </button>
-        <button type="button" className={button} onClick={() => setOpen('presets')}>
-          Presets
         </button>
         <button type="button" className={button} onClick={onExport}>
           Export JSON

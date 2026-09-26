@@ -132,6 +132,15 @@ export interface NewDocument {
   title?: string
   id?: string
   createdAt?: string
+  kind?: 'note'
+}
+
+export function isNote(d: Document): boolean {
+  return d.kind === 'note'
+}
+
+export function documentLabel(d: Document): string {
+  return d.title ?? (isNote(d) ? 'Untitled note' : 'Untitled')
 }
 
 export interface WindowPlacement {
@@ -156,8 +165,32 @@ export function createDocument(
     text: doc.text,
     createdAt: doc.createdAt ?? new Date().toISOString(),
     ...(doc.title?.trim() ? { title: doc.title.trim() } : {}),
+    ...(doc.kind ? { kind: doc.kind } : {}),
   }
   return openWindow({ ...state, documents: [...state.documents, document] }, layoutId, document.id, placement)
+}
+
+/**
+ * Create a note about `aboutDocumentId`: a note document, a window for it, and a
+ * link from the note to that document, as one change.
+ */
+export function createNote(
+  state: State,
+  layoutId: string,
+  note: Omit<NewDocument, 'kind'>,
+  placement: WindowPlacement,
+  aboutDocumentId: string,
+): State {
+  if (!state.documents.some((d) => d.id === aboutDocumentId)) return state
+  const id = note.id ?? newId('note')
+  const next = createDocument(state, layoutId, { ...note, id, kind: 'note' }, placement)
+  if (next === state) return state
+  return addLink(next, { from: { kind: 'document', id }, to: { kind: 'document', id: aboutDocumentId } })
+}
+
+/** Where to put a note window: to the right of the window it was created from. */
+export function notePlacement(source: Window, size = { width: 300, height: 200 }): WindowPlacement {
+  return { x: source.x + source.width + 24, y: source.y, ...size }
 }
 
 /**
@@ -458,12 +491,12 @@ export function activePresetsFor(state: State, highlightId: string): Set<string>
 export function describeLinkEnd(state: State, end: LinkEnd, excerptLength = 40): string {
   if (end.kind === 'document') {
     const doc = state.documents.find((d) => d.id === end.id)
-    return doc ? (doc.title ?? 'Untitled') : '(missing document)'
+    return doc ? documentLabel(doc) : '(missing document)'
   }
   const h = state.highlights.find((x) => x.id === end.id)
   const doc = h && state.documents.find((d) => d.id === h.documentId)
   if (!h || !doc) return '(missing highlight)'
   const raw = doc.text.slice(h.start, h.end).replace(/\s+/g, ' ').trim()
   const excerpt = raw.length > excerptLength ? `${raw.slice(0, excerptLength - 1)}…` : raw
-  return `“${excerpt}” (${doc.title ?? 'Untitled'})`
+  return `“${excerpt}” (${documentLabel(doc)})`
 }

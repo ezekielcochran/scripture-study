@@ -85,7 +85,12 @@ function checkAll(items: unknown, name: string, check: (item: unknown) => boolea
 }
 
 const isDocument = (d: unknown) =>
-  isRecord(d) && isStr(d.id) && isOptStr(d.title) && isStr(d.text) && isStr(d.createdAt)
+  isRecord(d) &&
+  isStr(d.id) &&
+  isOptStr(d.title) &&
+  isStr(d.text) &&
+  isStr(d.createdAt) &&
+  (d.kind === undefined || d.kind === 'note')
 
 const isPreset = (p: unknown) =>
   isRecord(p) &&

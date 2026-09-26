@@ -7,6 +7,7 @@ import {
   bringToFront,
   closeWindow,
   createDocument,
+  createNote,
   deleteDocument,
   deleteLink,
   deletePreset,
@@ -16,6 +17,7 @@ import {
   movePreset,
   moveWindow,
   nextWindowPlacement,
+  notePlacement,
   openDocument,
   openWindow,
   presetForShortcut,
@@ -177,6 +179,22 @@ describe('createDocument', () => {
 
   test('ignores an unknown layout', () => {
     expect(createDocument(withLayout, 'nope', { text: 'x' }, placement)).toBe(withLayout)
+  })
+
+  test('createNote adds a note document, its window, and a link to the source document', () => {
+    const withDoc = { ...withLayout, documents: [{ id: 'doc', text: 'source', createdAt: 'c' }] }
+    const next = createNote(withDoc, 'L', { text: 'thoughts', id: 'n1' }, placement, 'doc')
+    expect(next.documents.at(-1)).toMatchObject({ id: 'n1', text: 'thoughts', kind: 'note' })
+    expect(next.layouts[0].windows.at(-1)).toMatchObject({ id: 'w1', documentId: 'n1' })
+    expect(next.links).toEqual([
+      expect.objectContaining({ from: { kind: 'document', id: 'n1' }, to: { kind: 'document', id: 'doc' } }),
+    ])
+    expect(createNote(withDoc, 'L', { text: 'x' }, placement, 'missing')).toBe(withDoc)
+  })
+
+  test('notePlacement puts the note beside its source window', () => {
+    const source = { id: 'w', documentId: 'd', x: 100, y: 50, width: 340, height: 200, z: 1 }
+    expect(notePlacement(source, { width: 300, height: 200 })).toEqual({ x: 464, y: 50, width: 300, height: 200 })
   })
 })
 

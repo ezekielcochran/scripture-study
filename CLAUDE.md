@@ -23,7 +23,7 @@ State
   links:       Link[]
   layouts:     Layout[]
 
-Document   { id, title?, text, createdAt }
+Document   { id, title?, text, createdAt, kind?: 'note' }   // notes are documents shown in yellow windows
 Preset     { id, name, style: { color?, background?, bold?, italic?, underline? }, shortcut? }
 Highlight  { id, documentId, start, end, presetId, note? }   // [start, end) offsets into document.text
 Link       { id, from: LinkEnd, to: LinkEnd, label? }
