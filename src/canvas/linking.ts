@@ -20,6 +20,12 @@ export function clickLinkEnd(end: LinkEnd): void {
   }
 }
 
+/**
+ * Attribute marking elements that are valid targets while a link end is armed
+ * (highlights, Link buttons, New note, dialogs). A click anywhere else disarms.
+ */
+export const LINK_KEEP_ATTR = 'data-link-keep'
+
 export function isArmed(linkSource: LinkEnd | null, end: LinkEnd): boolean {
   return linkSource !== null && sameEnd(linkSource, end)
 }

@@ -16,6 +16,7 @@ import { PresetLegend } from './PresetLegend'
 import { Toolbar } from './Toolbar'
 import { MobileNotice } from './MobileNotice'
 import { useHighlightShortcuts } from './useHighlightShortcuts'
+import { LINK_KEEP_ATTR } from './linking'
 import { useUndoShortcuts } from './useUndoShortcuts'
 
 // React Flow requires nodeTypes/edgeTypes to be stable references (defined once,
@@ -37,14 +38,24 @@ export function Canvas() {
   useHighlightShortcuts()
   useUndoShortcuts()
 
-  // Escape cancels a pending link.
+  // The armed state is transient: Escape, or a click on anything that is not a
+  // valid link target, cancels it. The click listener runs after React's own
+  // handlers, so a click that arms or links has already happened by then.
   useEffect(() => {
     if (linkSource === null) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLinkSource(null)
     }
+    const onClick = (e: MouseEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      if (!target?.closest(`[${LINK_KEEP_ATTR}]`)) setLinkSource(null)
+    }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    document.addEventListener('click', onClick)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('click', onClick)
+    }
   }, [linkSource, setLinkSource])
 
   // Nodes are fully controlled: React Flow reports drags, resizes, and clicks as
@@ -64,7 +75,11 @@ export function Canvas() {
       defaultEdgeOptions={defaultEdgeOptions}
       onNodesChange={onNodesChange}
       onEdgeClick={(_, edge) => setEditingLink((edge as LinkEdgeType).data?.linkId ?? null)}
-      onPaneClick={() => setEditingLink(null)}
+      // Clicking the background ends whatever is in progress, like Escape.
+      onPaneClick={() => {
+        setEditingLink(null)
+        setLinkSource(null)
+      }}
       elevateNodesOnSelect={false}
       deleteKeyCode={null}
       colorMode="system"

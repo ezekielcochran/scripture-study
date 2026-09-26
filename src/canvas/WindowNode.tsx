@@ -8,7 +8,7 @@ import { diffEdit } from '../lib/ranges'
 import { closeWindow, documentLabel, editDocument, isNote } from '../model/actions'
 import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
-import { clickLinkEnd, isArmed } from './linking'
+import { clickLinkEnd, isArmed, LINK_KEEP_ATTR } from './linking'
 import { NewDocumentDialog } from './NewDocumentDialog'
 
 const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
@@ -69,7 +69,8 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     if (!window.getSelection()?.isCollapsed) return
     const span = (e.target as HTMLElement).closest<HTMLElement>('span[data-hl]')
     const ids = span?.dataset.hl?.split(' ').filter(Boolean) ?? []
-    if (ids.length === 0) return
+    // Clicking plain text disarms, like clicking the background.
+    if (ids.length === 0) return useUiStore.getState().setLinkSource(null)
     clickLinkEnd({ kind: 'highlight', id: ids[ids.length - 1] }) // innermost highlight wins
   }
 
@@ -105,6 +106,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
             type="button"
             className={`${headerButton} ${docArmed ? 'bg-accent-soft' : ''}`}
             title="Link this document: click to start or finish a link"
+            {...{ [LINK_KEEP_ATTR]: '' }}
             onClick={() => clickLinkEnd(docEnd)}
           >
             Link
@@ -163,6 +165,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
               <span
                 key={seg.start}
                 data-hl={seg.highlightIds.join(' ')}
+                {...(seg.highlightIds.length ? { [LINK_KEEP_ATTR]: '' } : {})}
                 className={`${fresh.length ? 'relative' : ''} ${isSource ? 'outline-2 outline-dashed outline-accent' : ''} ${seg.highlightIds.length ? 'cursor-pointer' : ''}`}
                 style={presetStyleToCss(styleForPresetIds(seg.presetIds, state.presets))}
               >

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { LINK_KEEP_ATTR } from './linking'
 
 interface Props {
   title: string
@@ -20,6 +21,8 @@ export function Dialog({ title, onClose, children }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      // Clicks inside a dialog keep a pending link armed (the note dialog relies on it).
+      {...{ [LINK_KEEP_ATTR]: '' }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

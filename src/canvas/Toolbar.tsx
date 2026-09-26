@@ -5,6 +5,7 @@ import { useUiStore } from '../store/uiStore'
 import { downloadStateFile, readStateFile } from '../storage'
 import { NewDocumentDialog } from './NewDocumentDialog'
 import { DocumentsDialog } from './DocumentsDialog'
+import { LINK_KEEP_ATTR } from './linking'
 import { PresetEditor } from './PresetEditor'
 
 type Open = 'new' | 'note' | 'documents' | 'presets' | null
@@ -69,6 +70,7 @@ export function Toolbar() {
           type="button"
           className={`${button} ${linkSource ? 'border-accent' : ''}`}
           title={linkSource ? 'Create a note linked to the armed highlight or document' : 'Create a note'}
+          {...{ [LINK_KEEP_ATTR]: '' }}
           onClick={() => setOpen('note')}
         >
           New note
