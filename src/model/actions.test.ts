@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { addHighlight, editDocument, presetForShortcut } from './actions'
+import {
+  addHighlight,
+  addPreset,
+  createDocument,
+  deletePreset,
+  editDocument,
+  nextWindowPlacement,
+  presetForShortcut,
+  shortcutConflict,
+  updatePreset,
+} from './actions'
 import type { State } from './types'
 
 const base: State = {
@@ -113,5 +123,83 @@ describe('editDocument', () => {
     const snapshot = JSON.stringify(withData)
     editDocument(withData, 'doc', { position: 0, deletedLength: 10, insertedText: 'gone' })
     expect(JSON.stringify(withData)).toBe(snapshot)
+  })
+})
+
+describe('createDocument', () => {
+  const withLayout: State = {
+    ...base,
+    layouts: [
+      { id: 'L', name: 'L', windows: [{ id: 'w0', documentId: 'doc', x: 0, y: 0, width: 1, height: 1, z: 5 }] },
+    ],
+  }
+  const placement = { x: 10, y: 20, width: 300, height: 200, id: 'w1' }
+
+  test('adds the document and a window above existing ones', () => {
+    const next = createDocument(withLayout, 'L', { text: 'body', title: ' T ', id: 'd1', createdAt: 'c' }, placement)
+    expect(next.documents.at(-1)).toEqual({ id: 'd1', text: 'body', title: 'T', createdAt: 'c' })
+    expect(next.layouts[0].windows.at(-1)).toEqual({ id: 'w1', documentId: 'd1', x: 10, y: 20, width: 300, height: 200, z: 6 })
+  })
+
+  test('omits an empty title and generates ids', () => {
+    const next = createDocument(withLayout, 'L', { text: 'body', title: '  ' }, { ...placement, id: undefined })
+    const doc = next.documents.at(-1)!
+    expect(doc).not.toHaveProperty('title')
+    expect(doc.id).toMatch(/^doc-/)
+    expect(next.layouts[0].windows.at(-1)!.id).toMatch(/^win-/)
+  })
+
+  test('ignores an unknown layout', () => {
+    expect(createDocument(withLayout, 'nope', { text: 'x' }, placement)).toBe(withLayout)
+  })
+})
+
+describe('nextWindowPlacement', () => {
+  test('centres the first window and steps later ones diagonally', () => {
+    const center = { x: 500, y: 400 }
+    expect(nextWindowPlacement([], center, { width: 400, height: 200 }, 20)).toEqual({ x: 300, y: 300, width: 400, height: 200 })
+    const two = [{}, {}] as State['layouts'][0]['windows']
+    expect(nextWindowPlacement(two, center, { width: 400, height: 200 }, 20)).toEqual({ x: 340, y: 340, width: 400, height: 200 })
+  })
+})
+
+describe('presets', () => {
+  const withHighlights: State = {
+    ...base,
+    documents: [{ id: 'doc', text: 'hello world', createdAt: 'c' }],
+    highlights: [
+      { id: 'h1', documentId: 'doc', start: 0, end: 2, presetId: 'p1' },
+      { id: 'h2', documentId: 'doc', start: 3, end: 5, presetId: 'p2' },
+    ],
+    links: [{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2' }],
+  }
+
+  test('addPreset appends and omits an empty shortcut', () => {
+    const next = addPreset(base, { name: 'N', style: { italic: true }, shortcut: '', id: 'p3' })
+    expect(next.presets.at(-1)).toEqual({ id: 'p3', name: 'N', style: { italic: true } })
+  })
+
+  test('updatePreset merges style and can set or clear the shortcut', () => {
+    let next = updatePreset(base, 'p1', { name: 'Renamed', style: { color: 'red' } })
+    expect(next.presets[0]).toEqual({ id: 'p1', name: 'Renamed', style: { bold: true, color: 'red' }, shortcut: '1' })
+    next = updatePreset(next, 'p1', { shortcut: undefined })
+    expect(next.presets[0]).not.toHaveProperty('shortcut')
+    next = updatePreset(next, 'p1', { shortcut: 'q' })
+    expect(next.presets[0].shortcut).toBe('q')
+    expect(updatePreset(base, 'nope', { name: 'x' })).toBe(base)
+  })
+
+  test('deletePreset removes its highlights and their links', () => {
+    const next = deletePreset(withHighlights, 'p1')
+    expect(next.presets.map((p) => p.id)).toEqual(['p2'])
+    expect(next.highlights.map((h) => h.id)).toEqual(['h2'])
+    expect(next.links).toEqual([])
+    expect(deletePreset(withHighlights, 'nope')).toBe(withHighlights)
+  })
+
+  test('shortcutConflict finds another preset using the key', () => {
+    expect(shortcutConflict(base.presets, '1')?.id).toBe('p1')
+    expect(shortcutConflict(base.presets, '1', 'p1')).toBeUndefined()
+    expect(shortcutConflict(base.presets, 'z')).toBeUndefined()
   })
 })

@@ -1,4 +1,4 @@
-import type { Highlight, Preset, State } from './types'
+import type { Document, Highlight, Preset, PresetStyle, State, Window } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
 
@@ -85,4 +85,129 @@ export function editDocument(state: State, documentId: string, edit: Edit): Stat
     links,
     layouts,
   }
+}
+
+// ---- Documents and windows ----------------------------------------------
+
+export interface NewDocument {
+  text: string
+  title?: string
+  id?: string
+  createdAt?: string
+}
+
+export interface WindowPlacement {
+  x: number
+  y: number
+  width: number
+  height: number
+  id?: string
+}
+
+/** Add a document and open a window for it in the given layout, as one change. */
+export function createDocument(
+  state: State,
+  layoutId: string,
+  doc: NewDocument,
+  placement: WindowPlacement,
+): State {
+  const layout = state.layouts.find((l) => l.id === layoutId)
+  if (!layout) return state
+  const document: Document = {
+    id: doc.id ?? newId('doc'),
+    text: doc.text,
+    createdAt: doc.createdAt ?? new Date().toISOString(),
+    ...(doc.title?.trim() ? { title: doc.title.trim() } : {}),
+  }
+  const window: Window = {
+    id: placement.id ?? newId('win'),
+    documentId: document.id,
+    x: placement.x,
+    y: placement.y,
+    width: placement.width,
+    height: placement.height,
+    z: layout.windows.reduce((max, w) => Math.max(max, w.z), 0) + 1,
+  }
+  return {
+    ...state,
+    documents: [...state.documents, document],
+    layouts: state.layouts.map((l) => (l.id === layoutId ? { ...l, windows: [...l.windows, window] } : l)),
+  }
+}
+
+/**
+ * Where to put the next window so it does not sit exactly on top of the last
+ * one: centred on `center`, stepped diagonally by the number of windows.
+ */
+export function nextWindowPlacement(
+  windows: Window[],
+  center: { x: number; y: number },
+  size = { width: 420, height: 260 },
+  step = 24,
+): WindowPlacement {
+  const offset = (windows.length % 8) * step
+  return {
+    x: Math.round(center.x - size.width / 2 + offset),
+    y: Math.round(center.y - size.height / 2 + offset),
+    ...size,
+  }
+}
+
+// ---- Presets -------------------------------------------------------------
+
+export interface NewPreset {
+  name: string
+  style: PresetStyle
+  shortcut?: string
+  id?: string
+}
+
+export function addPreset(state: State, p: NewPreset): State {
+  const preset: Preset = {
+    id: p.id ?? newId('preset'),
+    name: p.name,
+    style: { ...p.style },
+    ...(p.shortcut ? { shortcut: p.shortcut } : {}),
+  }
+  return { ...state, presets: [...state.presets, preset] }
+}
+
+/** Patch a preset's name, style, or shortcut. Setting `shortcut` to undefined clears it. */
+export function updatePreset(
+  state: State,
+  id: string,
+  patch: { name?: string; style?: PresetStyle; shortcut?: string | undefined },
+): State {
+  if (!state.presets.some((p) => p.id === id)) return state
+  return {
+    ...state,
+    presets: state.presets.map((p) => {
+      if (p.id !== id) return p
+      const next: Preset = { ...p }
+      if (patch.name !== undefined) next.name = patch.name
+      if (patch.style !== undefined) next.style = { ...p.style, ...patch.style }
+      if ('shortcut' in patch) {
+        if (patch.shortcut) next.shortcut = patch.shortcut
+        else delete next.shortcut
+      }
+      return next
+    }),
+  }
+}
+
+/** Remove a preset together with every highlight that uses it and those highlights' links. */
+export function deletePreset(state: State, id: string): State {
+  if (!state.presets.some((p) => p.id === id)) return state
+  const removed = new Set(state.highlights.filter((h) => h.presetId === id).map((h) => h.id))
+  return {
+    ...state,
+    presets: state.presets.filter((p) => p.id !== id),
+    highlights: state.highlights.filter((h) => !removed.has(h.id)),
+    links: state.links.filter((l) => !removed.has(l.fromHighlightId) && !removed.has(l.toHighlightId)),
+  }
+}
+
+/** The other preset already using `shortcut`, if any. */
+export function shortcutConflict(presets: Preset[], shortcut: string, excludeId?: string): Preset | undefined {
+  return presets.find((p) => p.id !== excludeId && p.shortcut !== undefined && p.shortcut === shortcut)
 }
