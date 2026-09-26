@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
 import { Panel } from '@xyflow/react'
 import { useStore } from '../store/store'
+import { useUiStore } from '../store/uiStore'
 import { downloadStateFile, readStateFile } from '../storage'
 import { NewDocumentDialog } from './NewDocumentDialog'
 import { DocumentsDialog } from './DocumentsDialog'
 import { PresetEditor } from './PresetEditor'
 
-type Open = 'new' | 'documents' | 'presets' | null
+type Open = 'new' | 'note' | 'documents' | 'presets' | null
 
 /** Top-right actions: new document, presets, export, import. */
 export function Toolbar() {
@@ -15,6 +16,7 @@ export function Toolbar() {
   const [open, setOpen] = useState<Open>(null)
   const canUndo = useStore((s) => s.history.past.length > 0)
   const canRedo = useStore((s) => s.history.future.length > 0)
+  const linkSource = useUiStore((s) => s.linkSource)
 
   function onExport() {
     downloadStateFile(useStore.getState().state)
@@ -36,7 +38,8 @@ export function Toolbar() {
   const button = 'rounded border border-line bg-surface px-2 py-1 text-sm shadow hover:bg-surface-3'
   return (
     <>
-      <Panel position="top-right" className="flex items-center gap-2">
+      {/* Wraps into rows on narrow screens; the max width keeps it clear of the legend on the left. */}
+      <Panel position="top-right" className="flex max-w-[calc(100vw-330px)] flex-wrap items-center justify-end gap-2">
         {message && <span className="text-xs text-muted">{message}</span>}
         <button
           type="button"
@@ -62,6 +65,14 @@ export function Toolbar() {
         <button type="button" className={button} onClick={() => setOpen('new')}>
           New document
         </button>
+        <button
+          type="button"
+          className={`${button} ${linkSource ? 'border-accent' : ''}`}
+          title={linkSource ? 'Create a note linked to the armed highlight or document' : 'Create a note'}
+          onClick={() => setOpen('note')}
+        >
+          New note
+        </button>
         <button type="button" className={button} onClick={() => setOpen('documents')}>
           Documents
         </button>
@@ -80,6 +91,7 @@ export function Toolbar() {
         />
       </Panel>
       {open === 'new' && <NewDocumentDialog onClose={() => setOpen(null)} />}
+      {open === 'note' && <NewDocumentDialog note={{ about: linkSource ?? undefined }} onClose={() => setOpen(null)} />}
       {open === 'documents' && <DocumentsDialog onClose={() => setOpen(null)} />}
       {open === 'presets' && <PresetEditor onClose={() => setOpen(null)} />}
     </>

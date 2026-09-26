@@ -29,6 +29,7 @@ import {
   toggleHighlight,
   toggleLink,
   updatePreset,
+  windowShowingEnd,
 } from './actions'
 import type { State } from './types'
 
@@ -181,15 +182,33 @@ describe('createDocument', () => {
     expect(createDocument(withLayout, 'nope', { text: 'x' }, placement)).toBe(withLayout)
   })
 
-  test('createNote adds a note document, its window, and a link to the source document', () => {
-    const withDoc = { ...withLayout, documents: [{ id: 'doc', text: 'source', createdAt: 'c' }] }
-    const next = createNote(withDoc, 'L', { text: 'thoughts', id: 'n1' }, placement, 'doc')
+  test('createNote adds a note document, its window, and a link to what it is about', () => {
+    const withDoc: State = {
+      ...withLayout,
+      documents: [{ id: 'doc', text: 'source', createdAt: 'c' }],
+      highlights: [{ id: 'h', documentId: 'doc', start: 0, end: 3, presetId: 'p1' }],
+    }
+    const next = createNote(withDoc, 'L', { text: 'thoughts', id: 'n1' }, placement, dc('doc'))
     expect(next.documents.at(-1)).toMatchObject({ id: 'n1', text: 'thoughts', kind: 'note' })
     expect(next.layouts[0].windows.at(-1)).toMatchObject({ id: 'w1', documentId: 'n1' })
-    expect(next.links).toEqual([
-      expect.objectContaining({ from: { kind: 'document', id: 'n1' }, to: { kind: 'document', id: 'doc' } }),
-    ])
-    expect(createNote(withDoc, 'L', { text: 'x' }, placement, 'missing')).toBe(withDoc)
+    expect(next.links).toEqual([expect.objectContaining({ from: dc('n1'), to: dc('doc') })])
+    const aboutHighlight = createNote(withDoc, 'L', { text: 'x', id: 'n2' }, placement, hl('h'))
+    expect(aboutHighlight.links).toEqual([expect.objectContaining({ from: dc('n2'), to: hl('h') })])
+    const standalone = createNote(withDoc, 'L', { text: 'x', id: 'n3' }, placement)
+    expect(standalone.links).toEqual([])
+    expect(standalone.documents.at(-1)?.kind).toBe('note')
+    expect(createNote(withDoc, 'L', { text: 'x' }, placement, dc('missing'))).toBe(withDoc)
+  })
+
+  test('windowShowingEnd finds the window for a document or a highlight', () => {
+    const s: State = {
+      ...withLayout,
+      documents: [{ id: 'doc', text: 'source', createdAt: 'c' }],
+      highlights: [{ id: 'h', documentId: 'doc', start: 0, end: 3, presetId: 'p1' }],
+    }
+    expect(windowShowingEnd(s, s.layouts[0], dc('doc'))?.id).toBe('w0')
+    expect(windowShowingEnd(s, s.layouts[0], hl('h'))?.id).toBe('w0')
+    expect(windowShowingEnd(s, s.layouts[0], hl('nope'))).toBeUndefined()
   })
 
   test('notePlacement puts the note beside its source window', () => {

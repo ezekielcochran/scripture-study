@@ -131,7 +131,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
         </span>
       </div>
       {notingAbout && (
-        <NewDocumentDialog note={{ aboutDocumentId: doc.id, source: win }} onClose={() => setNotingAbout(false)} />
+        <NewDocumentDialog note={{ about: docEnd }} onClose={() => setNotingAbout(false)} />
       )}
       {editing ? (
         <>

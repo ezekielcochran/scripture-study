@@ -171,21 +171,28 @@ export function createDocument(
 }
 
 /**
- * Create a note about `aboutDocumentId`: a note document, a window for it, and a
- * link from the note to that document, as one change.
+ * Create a note: a note document and a window for it, plus (when `about` is
+ * given) a link from the note to that highlight or document, as one change.
  */
 export function createNote(
   state: State,
   layoutId: string,
   note: Omit<NewDocument, 'kind'>,
   placement: WindowPlacement,
-  aboutDocumentId: string,
+  about?: LinkEnd,
 ): State {
-  if (!state.documents.some((d) => d.id === aboutDocumentId)) return state
+  if (about && !endExists(state, about)) return state
   const id = note.id ?? newId('note')
   const next = createDocument(state, layoutId, { ...note, id, kind: 'note' }, placement)
   if (next === state) return state
-  return addLink(next, { from: { kind: 'document', id }, to: { kind: 'document', id: aboutDocumentId } })
+  return about ? addLink(next, { from: { kind: 'document', id }, to: about }) : next
+}
+
+/** The window (if any) that shows a link end, for placing related windows nearby. */
+export function windowShowingEnd(state: State, layout: Layout, end: LinkEnd): Window | undefined {
+  if (end.kind === 'document') return layout.windows.find((w) => w.documentId === end.id)
+  const h = state.highlights.find((x) => x.id === end.id)
+  return h && layout.windows.find((w) => w.documentId === h.documentId)
 }
 
 /** Where to put a note window: to the right of the window it was created from. */
