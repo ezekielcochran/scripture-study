@@ -5,6 +5,7 @@ import { flattenSegments } from '../lib/segments'
 import { styleForPresetIds } from '../lib/style'
 import type { PresetStyle } from '../model/types'
 import type { WindowNode as WindowNodeType } from '../lib/layout'
+import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 
 function toCss(s: PresetStyle): CSSProperties {
   return {
@@ -37,7 +38,12 @@ export function WindowNode({ data }: NodeProps<WindowNodeType>) {
       <div className="border-b border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
         {doc.title ?? 'Untitled'}
       </div>
-      <div className="overflow-auto p-3 font-serif text-base leading-relaxed whitespace-pre-wrap">
+      {/* nodrag/nowheel: React Flow class names that stop node dragging and canvas zooming
+          inside this element, so the mouse can select text and scroll it instead. */}
+      <div
+        {...{ [WINDOW_TEXT_ATTR]: win.id }}
+        className="nodrag nowheel cursor-text select-text overflow-auto p-3 font-serif text-base leading-relaxed whitespace-pre-wrap"
+      >
         {segments.map((seg) => (
           <span key={seg.start} style={toCss(styleForPresetIds(seg.presetIds, state.presets))}>
             {seg.text}

@@ -37,7 +37,7 @@ export const seedState: State = {
       id: 'layout-1',
       name: 'Default',
       windows: [
-        { id: 'win-1', documentId: 'doc-1', x: 80, y: 80, width: 420, height: 220, z: 1 },
+        { id: 'win-1', documentId: 'doc-1', x: 80, y: 140, width: 420, height: 220, z: 1 },
       ],
     },
   ],
