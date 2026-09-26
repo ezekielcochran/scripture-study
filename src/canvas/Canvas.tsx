@@ -74,7 +74,7 @@ export function Canvas() {
       )}
       {linkSource !== null && (
         <Panel position="bottom-center" className="rounded border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm text-blue-800 shadow">
-          Linking: click another highlight to connect, or press Esc to cancel.
+          Linking: click another highlight to connect, press a preset key to toggle its format, or Esc to cancel.
         </Panel>
       )}
     </ReactFlow>
