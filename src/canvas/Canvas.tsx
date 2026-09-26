@@ -69,7 +69,7 @@ export function Canvas() {
       <Toolbar />
       {layout.windows.length === 0 && (
         <Panel position="top-center" className="mt-24! text-sm text-gray-500">
-          No windows open. Use <b>New document</b> or <b>Open document</b> above.
+          No windows open. Use <b>New document</b> or <b>Documents</b> above.
         </Panel>
       )}
       {linkSource !== null && (

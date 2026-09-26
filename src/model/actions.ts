@@ -347,3 +347,48 @@ export function deleteLink(state: State, id: string): State {
   if (!state.links.some((l) => l.id === id)) return state
   return { ...state, links: state.links.filter((l) => l.id !== id) }
 }
+
+// ---- Documents: rename, delete, open-or-focus ---------------------------
+
+/** Set a document's title; an empty title removes it. */
+export function setDocumentTitle(state: State, id: string, title: string): State {
+  if (!state.documents.some((d) => d.id === id)) return state
+  const trimmed = title.trim()
+  return {
+    ...state,
+    documents: state.documents.map((d) => {
+      if (d.id !== id) return d
+      const { title: _old, ...rest } = d
+      return trimmed ? { ...rest, title: trimmed } : rest
+    }),
+  }
+}
+
+/** Remove a document with its highlights, the links touching them, and every window showing it. */
+export function deleteDocument(state: State, id: string): State {
+  if (!state.documents.some((d) => d.id === id)) return state
+  const removed = new Set(state.highlights.filter((h) => h.documentId === id).map((h) => h.id))
+  return {
+    ...state,
+    documents: state.documents.filter((d) => d.id !== id),
+    highlights: state.highlights.filter((h) => h.documentId !== id),
+    links: state.links.filter((l) => !removed.has(l.fromHighlightId) && !removed.has(l.toHighlightId)),
+    layouts: state.layouts.map((l) => ({ ...l, windows: l.windows.filter((w) => w.documentId !== id) })),
+  }
+}
+
+/** The window showing the whole of a document in this layout, if one is open. */
+export function findOpenWindow(layout: Layout, documentId: string): Window | undefined {
+  return layout.windows.find((w) => w.documentId === documentId && !w.range)
+}
+
+/**
+ * Show a document: bring its existing whole-document window to the front, or
+ * open a new one if there is none. Never opens a duplicate.
+ */
+export function openDocument(state: State, layoutId: string, documentId: string, placement: WindowPlacement): State {
+  const layout = state.layouts.find((l) => l.id === layoutId)
+  if (!layout) return state
+  const existing = findOpenWindow(layout, documentId)
+  return existing ? bringToFront(state, existing.id) : openWindow(state, layoutId, documentId, placement)
+}

@@ -6,15 +6,19 @@ import {
   bringToFront,
   closeWindow,
   createDocument,
+  deleteDocument,
   deleteLink,
   deletePreset,
   editDocument,
+  findOpenWindow,
   moveWindow,
   nextWindowPlacement,
+  openDocument,
   openWindow,
   presetForShortcut,
   removeHighlight,
   resizeWindow,
+  setDocumentTitle,
   setLinkLabel,
   shortcutConflict,
   toggleHighlight,
@@ -333,5 +337,67 @@ describe('removeHighlight / toggleHighlight', () => {
     const wider = toggleHighlight(withData, { documentId: 'doc', start: 1, end: 9, presetId: 'p1', id: 'w' })
     expect(wider.highlights.map((h) => h.id)).toEqual(['a', 'b', 'w'])
     expect(toggleHighlight(withData, { documentId: 'doc', start: 5, end: 5, presetId: 'p1' })).toBe(withData)
+  })
+})
+
+describe('document rename, delete, open-or-focus', () => {
+  const two: State = {
+    ...base,
+    documents: [
+      { id: 'd1', title: 'One', text: 'aaaa', createdAt: 'c' },
+      { id: 'd2', text: 'bbbb', createdAt: 'c' },
+    ],
+    highlights: [
+      { id: 'h1', documentId: 'd1', start: 0, end: 2, presetId: 'p1' },
+      { id: 'h2', documentId: 'd2', start: 0, end: 2, presetId: 'p1' },
+    ],
+    links: [{ id: 'l', fromHighlightId: 'h1', toHighlightId: 'h2' }],
+    layouts: [
+      {
+        id: 'L',
+        name: 'L',
+        windows: [
+          { id: 'w1', documentId: 'd1', x: 0, y: 0, width: 1, height: 1, z: 1 },
+          { id: 'w1r', documentId: 'd1', range: { start: 0, end: 2 }, x: 0, y: 0, width: 1, height: 1, z: 2 },
+          { id: 'w2', documentId: 'd2', x: 0, y: 0, width: 1, height: 1, z: 3 },
+        ],
+      },
+    ],
+  }
+  const placement = { x: 0, y: 0, width: 10, height: 10, id: 'new' }
+
+  test('setDocumentTitle sets, trims, and clears', () => {
+    expect(setDocumentTitle(two, 'd2', '  Two ').documents[1].title).toBe('Two')
+    expect(setDocumentTitle(two, 'd1', ' ').documents[0]).not.toHaveProperty('title')
+    expect(setDocumentTitle(two, 'nope', 'x')).toBe(two)
+  })
+
+  test('deleteDocument removes the document, its highlights, their links, and its windows', () => {
+    const next = deleteDocument(two, 'd1')
+    expect(next.documents.map((d) => d.id)).toEqual(['d2'])
+    expect(next.highlights.map((h) => h.id)).toEqual(['h2'])
+    expect(next.links).toEqual([])
+    expect(next.layouts[0].windows.map((w) => w.id)).toEqual(['w2'])
+    expect(deleteDocument(two, 'nope')).toBe(two)
+  })
+
+  test('findOpenWindow ignores sub-range windows', () => {
+    expect(findOpenWindow(two.layouts[0], 'd1')?.id).toBe('w1')
+    const onlyRange = { ...two.layouts[0], windows: two.layouts[0].windows.filter((w) => w.id !== 'w1') }
+    expect(findOpenWindow(onlyRange, 'd1')).toBeUndefined()
+  })
+
+  test('openDocument focuses an existing window instead of opening a duplicate', () => {
+    const next = openDocument(two, 'L', 'd1', placement)
+    const windows = next.layouts[0].windows
+    expect(windows.map((w) => w.id)).toEqual(['w1', 'w1r', 'w2'])
+    expect(windows.find((w) => w.id === 'w1')!.z).toBe(3)
+  })
+
+  test('openDocument opens a new window when none shows the whole document', () => {
+    const closed = { ...two, layouts: [{ ...two.layouts[0], windows: two.layouts[0].windows.filter((w) => w.id !== 'w1') }] }
+    const next = openDocument(closed, 'L', 'd1', placement)
+    expect(next.layouts[0].windows.map((w) => w.id)).toEqual(['w1r', 'w2', 'new'])
+    expect(openDocument(two, 'nope', 'd1', placement)).toBe(two)
   })
 })
