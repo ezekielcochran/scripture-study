@@ -9,10 +9,10 @@
 :root {
   --bg: #ebe0db;
   --dots: #c4afa7;
-  --surface: #fffbf9;
-  --surface-2: #f4ece8;
-  --surface-3: #eadfda;
-  --line: #d3c3bc;
+  --surface: #f3f3f6;
+  --surface-2: #e9e9ee;
+  --surface-3: #dedee6;
+  --line: #cfcfd8;
   --ink: #2b2323;
   --ink-on-highlight: #2b2323;
   --muted: #7d6f6a;
@@ -26,10 +26,10 @@
   :root {
     --bg: #292121;
     --dots: #4f3f3f;
-    --surface: #352b2b;
-    --surface-2: #3f3333;
-    --surface-3: #4a3c3c;
-    --line: #574747;
+    --surface: #433737;
+    --surface-2: #4e4141;
+    --surface-3: #5a4c4c;
+    --line: #6a5b5b;
     --ink: #efe6e2;
     --muted: #ab9c97;
     --accent: #7aa7ff;
