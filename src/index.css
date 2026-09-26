@@ -9,10 +9,10 @@
 :root {
   --bg: #ebe0db;
   --dots: #c4afa7;
-  --surface: #f3f3f6;
-  --surface-2: #e9e9ee;
-  --surface-3: #dedee6;
-  --line: #cfcfd8;
+  --surface: #ffffff;
+  --surface-2: #f6f1ee;
+  --surface-3: #ece4e0;
+  --line: #d9cdc7;
   --ink: #2b2323;
   --ink-on-highlight: #2b2323;
   --muted: #7d6f6a;
