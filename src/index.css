@@ -19,6 +19,9 @@
   --accent: #2f6fdb;
   --accent-soft: #dbe7fb;
   --danger: #b93a2c;
+  --warn-bg: #fbe9e6;
+  --warn-line: #a83a2e;
+  --warn-ink: #7a2419;
   --link: #b9aca6;
 }
 
@@ -35,6 +38,9 @@
     --accent: #7aa7ff;
     --accent-soft: #3b4a6b;
     --danger: #f09084;
+    --warn-bg: #4a2b28;
+    --warn-line: #d86a5c;
+    --warn-ink: #f6d3cd;
     --link: #7d6d68;
   }
 }
@@ -51,6 +57,9 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-line: var(--warn-line);
+  --color-warn-ink: var(--warn-ink);
 }
 
 html,

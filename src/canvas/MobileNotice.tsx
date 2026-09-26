@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Panel } from '@xyflow/react'
 
 const QUERY = '(pointer: coarse) and (max-width: 900px)'
 const DISMISSED_KEY = 'text-study:mobile-notice-dismissed'
@@ -19,22 +18,26 @@ export function MobileNotice() {
   }, [])
 
   if (!show) return null
+  // Fixed and above the canvas (which has its own stacking contexts), so nothing on it can overlap.
   return (
-    <Panel position="top-center" className="mt-16! max-w-[90vw] rounded border border-accent bg-surface px-3 py-2 text-sm shadow">
-      <div className="flex items-start gap-3">
-        <span>This app is designed for a desktop browser with a keyboard. It may be hard to use on a phone.</span>
-        <button
-          type="button"
-          className="shrink-0 rounded px-1.5 text-muted hover:bg-surface-3"
-          title="Dismiss"
-          onClick={() => {
-            localStorage.setItem(DISMISSED_KEY, '1')
-            setShow(false)
-          }}
-        >
-          ×
-        </button>
-      </div>
-    </Panel>
+    <div
+      role="alert"
+      className="fixed top-3 left-1/2 z-[100000] flex w-[min(92vw,28rem)] -translate-x-1/2 items-start gap-3 rounded-md border-2 border-warn-line bg-warn-bg px-4 py-3 text-sm text-warn-ink shadow-lg"
+    >
+      <span className="grow">
+        This app is designed for a desktop browser with a keyboard. It may be hard to use on a phone.
+      </span>
+      <button
+        type="button"
+        className="shrink-0 rounded px-2 text-lg leading-none hover:opacity-70"
+        title="Dismiss"
+        onClick={() => {
+          localStorage.setItem(DISMISSED_KEY, '1')
+          setShow(false)
+        }}
+      >
+        ×
+      </button>
+    </div>
   )
 }
