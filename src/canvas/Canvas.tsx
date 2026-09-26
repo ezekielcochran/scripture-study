@@ -14,6 +14,7 @@ import { WindowNode } from './WindowNode'
 import { LinkEdge } from './LinkEdge'
 import { PresetLegend } from './PresetLegend'
 import { Toolbar } from './Toolbar'
+import { MobileNotice } from './MobileNotice'
 import { useHighlightShortcuts } from './useHighlightShortcuts'
 import { useUndoShortcuts } from './useUndoShortcuts'
 
@@ -73,6 +74,7 @@ export function Canvas() {
       <Background bgColor="var(--bg)" color="var(--dots)" gap={20} size={1.6} />
       <PresetLegend />
       <Toolbar />
+      <MobileNotice />
       {layout.windows.length === 0 && (
         <Panel position="top-center" className="mt-24! text-sm text-muted">
           No windows open. Use <b>New document</b> or <b>Documents</b> above.
