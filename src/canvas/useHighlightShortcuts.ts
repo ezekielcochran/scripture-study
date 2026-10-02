@@ -3,7 +3,6 @@ import { useStore } from '../store/store'
 import { currentWorkspace, presetForShortcut, presetsIn } from '../model/actions'
 import { applyPreset } from './applyPreset'
 
-export { WINDOW_TEXT_ATTR } from './applyPreset'
 
 /**
  * Keyboard-first highlighting: select text in a window, press a preset's shortcut.

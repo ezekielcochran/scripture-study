@@ -74,7 +74,7 @@ export function BlocksDialog({ onClose }: { onClose: () => void }) {
   function removeWorkspace() {
     const n = blocks.length
     const portals = state.portals.filter((p) => p.workspaceId === ws || p.targetWorkspaceId === ws).length / 2
-    const msg = `Delete workspace "${workspace.name}" with its ${n} block(s) and ${portals} portal(s)? This cannot be undone from another workspace.`
+    const msg = `Delete workspace "${workspace.name}" with its ${n} block(s) and ${portals} portal(s)? Undo can bring it back.`
     if (window.confirm(msg)) {
       update((s) => deleteWorkspace(s, ws))
       onClose()

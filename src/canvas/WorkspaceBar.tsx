@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Panel } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
@@ -8,12 +9,17 @@ export function WorkspaceBar() {
   const workspaces = useStore((s) => s.state.workspaces)
   const currentId = useStore((s) => s.state.currentWorkspaceId)
   const update = useStore((s) => s.update)
+  const name = workspaces.find((w) => w.id === currentId)?.name ?? ''
+  // useEffect: the tab title is outside React's tree.
+  useEffect(() => {
+    document.title = name ? `${name} · Text Study` : 'Text Study'
+  }, [name])
   return (
     <Panel position="bottom-left" className="flex items-center gap-2 rounded border border-line bg-surface px-2 py-1 text-sm shadow">
       <span className="text-xs text-muted">Workspace</span>
       {/* A native select keeps this keyboard-accessible with no extra code. */}
       <select
-        className="rounded border border-line bg-surface px-1 py-0.5 text-sm text-ink focus:outline-none"
+        className="max-w-56 rounded border border-line bg-surface px-1 py-0.5 text-sm text-ink focus:outline-none"
         value={currentId}
         onChange={(e) => {
           useUiStore.getState().setLinkSource(null)

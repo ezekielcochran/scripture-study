@@ -1,9 +1,9 @@
 import { useRef, type MouseEvent } from 'react'
-import type { NodeProps } from '@xyflow/react'
+import { useReactFlow, type NodeProps } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { deletePortal, switchWorkspace } from '../model/actions'
-import type { PortalNode as PortalNodeType } from '../lib/layout'
+import { PORTAL_SIZE, type PortalNode as PortalNodeType } from '../lib/layout'
 import { PortalGlyph } from './PortalGlyph'
 
 /**
@@ -14,6 +14,7 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
   const portal = useStore((s) => s.state.portals.find((p) => p.id === data.portalId))
   const target = useStore((s) => s.state.workspaces.find((w) => w.id === portal?.targetWorkspaceId))
   const update = useStore((s) => s.update)
+  const { setCenter, getZoom } = useReactFlow()
   const downAt = useRef<{ x: number; y: number } | null>(null)
   if (!portal || !target) return null
 
@@ -22,7 +23,13 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
     const d = downAt.current
     if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return
     useUiStore.getState().setLinkSource(null)
+    const { state } = useStore.getState()
+    const counterpart = state.portals.find((p) => p.pairId === portal!.pairId && p.id !== portal!.id)
     update((s) => switchWorkspace(s, target!.id), { skip: true })
+    // Arrive looking at the matching portal on the other side.
+    if (counterpart) {
+      void setCenter(counterpart.x + PORTAL_SIZE.width / 2, counterpart.y + PORTAL_SIZE.height / 2, { zoom: getZoom() })
+    }
   }
 
   return (
