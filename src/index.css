@@ -87,18 +87,3 @@ body,
     font-size: 0.9rem;
   }
 }
-
-/* Portal spiral arms turn slowly; stopped for users who prefer reduced motion. */
-@keyframes portal-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.portal-arms {
-  animation: portal-spin 60s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .portal-arms {
-    animation: none;
-  }
-}

@@ -34,7 +34,7 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
       }}
       onClick={travel}
     >
-      <div className="absolute inset-0 transition-transform group-hover:scale-[1.03]">
+      <div className="absolute inset-0 transition-transform group-hover:scale-[1.04]">
         <PortalGlyph />
       </div>
       {/* The name wraps (up to three lines) inside the oval rather than truncating. */}
