@@ -626,7 +626,7 @@ describe('queries', () => {
     expect(describeLinkEnd(s, { kind: 'document', id: 'doc' })).toBe('Doc')
     expect(describeLinkEnd(s, { kind: 'highlight', id: 'a' })).toBe('“In the beginning” (Doc)')
     expect(describeLinkEnd(s, { kind: 'highlight', id: 'a' }, 8)).toBe('“In the …” (Doc)')
-    expect(describeLinkEnd(s, { kind: 'document', id: 'x' })).toBe('(missing document)')
+    expect(describeLinkEnd(s, { kind: 'document', id: 'x' })).toBe('(missing block)')
     expect(describeLinkEnd(s, { kind: 'highlight', id: 'x' })).toBe('(missing highlight)')
   })
 })

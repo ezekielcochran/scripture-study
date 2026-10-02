@@ -9,7 +9,7 @@ import { closeWindow, editDocument, isNote } from '../model/actions'
 import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 import { clickLinkEnd, isArmed, LINK_KEEP_ATTR } from './linking'
-import { NewDocumentDialog } from './NewDocumentDialog'
+import { NewBlockDialog } from './NewBlockDialog'
 import { useSmartWheel } from './useSmartWheel'
 
 const textClasses = 'grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
@@ -57,7 +57,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     updateNodeInternals(nodeId)
   }, [nodeId, updateNodeInternals, text, state.highlights, win?.width, win?.height, editing])
 
-  if (!win || !doc) return <div className="p-2 text-danger">Missing window or document</div>
+  if (!win || !doc) return <div className="p-2 text-danger">Missing window or block</div>
 
   function onTextChange(next: string, caret: number) {
     const edit = diffEdit(text, next, caret)
@@ -111,7 +111,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
           <button
             type="button"
             className={`${headerButton} ${docArmed ? 'bg-accent-soft' : ''}`}
-            title="Link this document: click to start or finish a link"
+            title="Link this block: click to start or finish a link"
             {...{ [LINK_KEEP_ATTR]: '' }}
             onClick={() => clickLinkEnd(docEnd)}
           >
@@ -120,7 +120,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
           <button
             type="button"
             className={headerButton}
-            title="Create a note linked to this document"
+            title="Create a note linked to this block"
             onClick={() => setNotingAbout(true)}
           >
             Note
@@ -139,7 +139,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
         </span>
       </div>
       {notingAbout && (
-        <NewDocumentDialog note={{ about: docEnd }} onClose={() => setNotingAbout(false)} />
+        <NewBlockDialog note={{ about: docEnd }} onClose={() => setNotingAbout(false)} />
       )}
       {editing ? (
         <>

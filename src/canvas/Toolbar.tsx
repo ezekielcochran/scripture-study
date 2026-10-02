@@ -3,14 +3,14 @@ import { Panel } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { downloadStateFile, readStateFile } from '../storage'
-import { NewDocumentDialog } from './NewDocumentDialog'
-import { DocumentsDialog } from './DocumentsDialog'
+import { NewBlockDialog } from './NewBlockDialog'
+import { BlocksDialog } from './BlocksDialog'
 import { LINK_KEEP_ATTR } from './linking'
 import { PresetEditor } from './PresetEditor'
 
-type Open = 'new' | 'note' | 'documents' | 'presets' | null
+type Open = 'new' | 'note' | 'blocks' | 'presets' | null
 
-/** Top-right actions: new document, presets, export, import. */
+/** Top-right actions: undo/redo, presets, new block, new note, blocks, export, import. */
 export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -64,19 +64,19 @@ export function Toolbar() {
           Presets
         </button>
         <button type="button" className={button} onClick={() => setOpen('new')}>
-          New document
+          New block
         </button>
         <button
           type="button"
           className={`${button} ${linkSource ? 'border-accent' : ''}`}
-          title={linkSource ? 'Create a note linked to the armed highlight or document' : 'Create a note'}
+          title={linkSource ? 'Create a note linked to the armed highlight or block' : 'Create a note'}
           {...{ [LINK_KEEP_ATTR]: '' }}
           onClick={() => setOpen('note')}
         >
           New note
         </button>
-        <button type="button" className={button} onClick={() => setOpen('documents')}>
-          Documents
+        <button type="button" className={button} onClick={() => setOpen('blocks')}>
+          Blocks
         </button>
         <button type="button" className={button} onClick={onExport}>
           Export JSON
@@ -92,9 +92,9 @@ export function Toolbar() {
           onChange={(e) => void onFileChosen(e.target.files?.[0])}
         />
       </Panel>
-      {open === 'new' && <NewDocumentDialog onClose={() => setOpen(null)} />}
-      {open === 'note' && <NewDocumentDialog note={{ about: linkSource ?? undefined }} onClose={() => setOpen(null)} />}
-      {open === 'documents' && <DocumentsDialog onClose={() => setOpen(null)} />}
+      {open === 'new' && <NewBlockDialog onClose={() => setOpen(null)} />}
+      {open === 'note' && <NewBlockDialog note={{ about: linkSource ?? undefined }} onClose={() => setOpen(null)} />}
+      {open === 'blocks' && <BlocksDialog onClose={() => setOpen(null)} />}
       {open === 'presets' && <PresetEditor onClose={() => setOpen(null)} />}
     </>
   )

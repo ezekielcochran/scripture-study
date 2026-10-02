@@ -505,7 +505,7 @@ export function activePresetsFor(state: State, highlightId: string): Set<string>
 export function describeLinkEnd(state: State, end: LinkEnd, excerptLength = 40): string {
   if (end.kind === 'document') {
     const doc = state.documents.find((d) => d.id === end.id)
-    return doc ? documentLabel(doc) : '(missing document)'
+    return doc ? documentLabel(doc) : '(missing block)'
   }
   const h = state.highlights.find((x) => x.id === end.id)
   const doc = h && state.documents.find((d) => d.id === h.documentId)

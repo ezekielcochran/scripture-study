@@ -102,7 +102,7 @@ export function Canvas() {
       <MobileNotice />
       {layout.windows.length === 0 && (
         <Panel position="top-center" className="mt-24! text-sm text-muted">
-          No windows open. Use <b>New document</b> or <b>Documents</b> above.
+          No windows open. Use <b>New block</b> or <b>Blocks</b> above.
         </Panel>
       )}
       {linkSource !== null && (

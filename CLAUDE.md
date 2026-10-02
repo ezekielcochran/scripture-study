@@ -4,7 +4,7 @@ A local-first web app for close reading. The user enters passages of text, lays 
 
 ## Non-negotiable design rules
 
-- **Documents are plain user-entered text.** A document is whatever the user typed or pasted, plus an optional title. No built-in content and no assumed structure.
+- **Documents are plain user-entered text.** A document is whatever the user typed or pasted, plus an optional title. No built-in content and no assumed structure. In the UI a document is called a **block** (and a note is a block of kind `note`); the code and stored JSON keep the name `document`.
 - **Text stays editable after it's highlighted.** Highlights are character ranges, so every edit to a document's text must adjust the ranges over it in the same transaction: insertions and deletions shift later ranges, ranges that span an edit grow or shrink, and a range whose text is entirely deleted is removed (along with its links). Text and highlights must never be updated separately.
 - **Highlights are data, not markup.** Never write styling into the text. Highlights are ranges plus a preset reference, rendered on top of the plain text at display time. Overlapping highlights are expected and must render correctly.
 - **Presets are data.** A preset is a named bundle of visual properties (color, bold, italic, underline, and so on) with an optional keyboard shortcut. Presets are user-created and editable; the app ships with a small default set the user can change or delete.

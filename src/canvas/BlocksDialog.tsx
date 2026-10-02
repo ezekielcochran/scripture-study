@@ -15,8 +15,8 @@ import {
 import type { Document } from '../model/types'
 import { Dialog } from './Dialog'
 
-/** List, retitle, open (or focus), and delete documents; list and delete links. Edits apply immediately. */
-export function DocumentsDialog({ onClose }: { onClose: () => void }) {
+/** List, retitle, open (or focus), and delete blocks and notes; list and delete links. Edits apply immediately. */
+export function BlocksDialog({ onClose }: { onClose: () => void }) {
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
   const { screenToFlowPosition, setCenter, getZoom } = useReactFlow()
@@ -79,10 +79,10 @@ export function DocumentsDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog title="Documents" onClose={onClose}>
+    <Dialog title="Blocks" onClose={onClose}>
       {section(
         state.documents.filter((d) => !isNote(d)),
-        'No documents yet.',
+        'No blocks yet.',
         'Untitled',
       )}
       <h3 className="mt-4 mb-1 text-sm font-medium">Notes</h3>

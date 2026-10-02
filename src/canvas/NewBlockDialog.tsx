@@ -9,14 +9,14 @@ import { Dialog } from './Dialog'
 interface Props {
   onClose: () => void
   /**
-   * Note mode. `about` links the new note to that highlight or document and
+   * Note mode. `about` links the new note to that highlight or block and
    * places the note beside its window; omitted means a standalone note.
    */
   note?: { about?: LinkEnd }
 }
 
-/** Create a document, or (in note mode) a note linked to an existing document. */
-export function NewDocumentDialog({ onClose, note }: Props) {
+/** Create a block, or (in note mode) a note linked to an existing block or highlight. */
+export function NewBlockDialog({ onClose, note }: Props) {
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   // useReactFlow gives access to the viewport so a new window lands where the user is looking.
@@ -42,7 +42,7 @@ export function NewDocumentDialog({ onClose, note }: Props) {
 
   const field = 'w-full rounded border border-line bg-surface px-2 py-1 text-ink text-sm focus:border-muted focus:outline-none'
   return (
-    <Dialog title={note ? (note.about ? 'New linked note' : 'New note') : 'New document'} onClose={onClose}>
+    <Dialog title={note ? (note.about ? 'New linked note' : 'New note') : 'New block'} onClose={onClose}>
       <label className="mb-2 block text-sm">
         <span className="mb-1 block text-muted">Title (optional)</span>
         <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
