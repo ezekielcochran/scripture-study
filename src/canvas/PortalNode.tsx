@@ -4,6 +4,7 @@ import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { deletePortal, switchWorkspace } from '../model/actions'
 import type { PortalNode as PortalNodeType } from '../lib/layout'
+import { PortalGlyph } from './PortalGlyph'
 
 /**
  * A doorway to another workspace: an oval, galaxy-like swirl showing the target
@@ -33,9 +34,15 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
       }}
       onClick={travel}
     >
-      <div className="portal-swirl absolute inset-0 rounded-[50%] shadow-lg transition-transform group-hover:scale-[1.03]" />
-      <div className="absolute inset-0 flex items-center justify-center px-6">
-        <span className="truncate text-center text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+      <div className="absolute inset-0 transition-transform group-hover:scale-[1.03]">
+        <PortalGlyph />
+      </div>
+      {/* The name wraps (up to three lines) inside the oval rather than truncating. */}
+      <div className="absolute inset-0 flex items-center justify-center px-8">
+        <span
+          className="line-clamp-3 text-center text-sm leading-tight font-semibold text-white [overflow-wrap:anywhere] [text-wrap:balance]"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.6)' }}
+        >
           {target.name}
         </span>
       </div>

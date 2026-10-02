@@ -20,7 +20,7 @@ export type PortalNode = Node<PortalNodeData, 'portal'>
 
 export type CanvasNode = WindowNode | PortalNode
 
-export const PORTAL_SIZE = { width: 180, height: 84 }
+export const PORTAL_SIZE = { width: 200, height: 100 }
 
 /** CSS class on the part of a window that drags it (the header). */
 export const DRAG_HANDLE_CLASS = 'window-drag-handle'
