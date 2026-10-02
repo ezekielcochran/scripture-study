@@ -2,10 +2,11 @@ import { useRef, type CSSProperties, type MouseEvent } from 'react'
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
-import { deletePortal, switchWorkspace } from '../model/actions'
-import { PORTAL_SIZE, portalHandleId, type PortalNode as PortalNodeType } from '../lib/layout'
+import { deletePortal } from '../model/actions'
+import { portalHandleId, type PortalNode as PortalNodeType } from '../lib/layout'
 import { PortalGlyph } from './PortalGlyph'
 import { clickLinkEnd, isArmed, LINK_KEEP_ATTR } from './linking'
+import { travelThroughPortal } from './travel'
 
 // Edges attach here. Invisible and not connectable: links are made with the link button.
 const handleStyle: CSSProperties = { width: 1, height: 1, minWidth: 0, minHeight: 0, opacity: 0, border: 0, pointerEvents: 'none' }
@@ -19,7 +20,7 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
   const target = useStore((s) => s.state.workspaces.find((w) => w.id === portal?.targetWorkspaceId))
   const update = useStore((s) => s.update)
   const linkSource = useUiStore((s) => s.linkSource)
-  const { setCenter, getZoom } = useReactFlow()
+  const rf = useReactFlow()
   const downAt = useRef<{ x: number; y: number } | null>(null)
   if (!portal || !target) return null
   const end = { kind: 'portal', id: portal.id } as const
@@ -29,14 +30,7 @@ export function PortalNode({ data }: NodeProps<PortalNodeType>) {
     // A drag that happens to end here is not a click.
     const d = downAt.current
     if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return
-    useUiStore.getState().setLinkSource(null)
-    const { state } = useStore.getState()
-    const counterpart = state.portals.find((p) => p.pairId === portal!.pairId && p.id !== portal!.id)
-    update((s) => switchWorkspace(s, target!.id), { skip: true })
-    // Arrive looking at the matching portal on the other side.
-    if (counterpart) {
-      void setCenter(counterpart.x + PORTAL_SIZE.width / 2, counterpart.y + PORTAL_SIZE.height / 2, { zoom: getZoom() })
-    }
+    travelThroughPortal(portal!.id, rf, { keepPosition: true })
   }
 
   return (

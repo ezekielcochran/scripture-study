@@ -18,11 +18,10 @@ import {
   pruneLinks,
   renameWorkspace,
   setBlockTitle,
-  switchWorkspace,
 } from '../model/actions'
 import type { Block, Portal } from '../model/types'
 import { PORTAL_SIZE } from '../lib/layout'
-import { useUiStore } from '../store/uiStore'
+import { travelThroughPortal } from './travel'
 import { Dialog } from './Dialog'
 
 /**
@@ -33,7 +32,8 @@ import { Dialog } from './Dialog'
 export function BlocksDialog({ onClose }: { onClose: () => void }) {
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
-  const { screenToFlowPosition, setCenter, getZoom } = useReactFlow()
+  const rf = useReactFlow()
+  const { screenToFlowPosition, setCenter, getZoom } = rf
   const ws = state.currentWorkspaceId
   const workspace = state.workspaces.find((w) => w.id === ws)!
   const blocks = blocksIn(state, ws)
@@ -47,9 +47,8 @@ export function BlocksDialog({ onClose }: { onClose: () => void }) {
   }
 
   function goThrough(p: Portal) {
-    useUiStore.getState().setLinkSource(null)
-    update((s) => switchWorkspace(s, p.targetWorkspaceId), { skip: true })
     onClose()
+    travelThroughPortal(p.id, rf, { keepPosition: false })
   }
 
   function show(block: Block) {
