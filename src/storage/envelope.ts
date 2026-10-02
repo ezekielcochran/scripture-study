@@ -148,7 +148,8 @@ const isHighlight = (h: unknown) =>
   isStr(h.presetId) &&
   isOptStr(h.note)
 
-const isLinkEnd = (e: unknown) => isRecord(e) && (e.kind === 'highlight' || e.kind === 'block') && isStr(e.id)
+const isLinkEnd = (e: unknown) =>
+  isRecord(e) && (e.kind === 'highlight' || e.kind === 'block' || e.kind === 'portal') && isStr(e.id)
 
 const isLink = (l: unknown) =>
   isRecord(l) && isStr(l.id) && isLinkEnd(l.from) && isLinkEnd(l.to) && isOptStr(l.label)

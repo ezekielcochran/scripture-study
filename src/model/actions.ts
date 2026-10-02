@@ -1,6 +1,7 @@
 import type { Block, Highlight, Link, LinkEnd, Portal, Preset, PresetStyle, State, Window, Workspace } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
+import { PORTAL_SIZE } from './constants'
 
 // Every action is a pure function State -> State. Components call them through
 // the store's `update`, never mutating state themselves.
@@ -39,10 +40,17 @@ export function sameEnd(a: LinkEnd, b: LinkEnd): boolean {
   return a.kind === b.kind && a.id === b.id
 }
 
-/** Links that touch none of the given highlights or blocks. */
-export function pruneLinks(links: Link[], removed: { highlights?: Set<string>; blocks?: Set<string> }): Link[] {
+/** Links that touch none of the given highlights, blocks, or portals. */
+export function pruneLinks(
+  links: Link[],
+  removed: { highlights?: Set<string>; blocks?: Set<string>; portals?: Set<string> },
+): Link[] {
   const gone = (e: LinkEnd) =>
-    e.kind === 'highlight' ? removed.highlights?.has(e.id) === true : removed.blocks?.has(e.id) === true
+    e.kind === 'highlight'
+      ? removed.highlights?.has(e.id) === true
+      : e.kind === 'block'
+        ? removed.blocks?.has(e.id) === true
+        : removed.portals?.has(e.id) === true
   return links.filter((l) => !gone(l.from) && !gone(l.to))
 }
 
@@ -158,8 +166,9 @@ export function presetsIn(state: State, workspaceId: string): Preset[] {
   return state.presets.filter((p) => p.workspaceId === workspaceId)
 }
 
-/** Workspace of a link end, via its block. */
+/** Workspace of a link end: a portal's own, or that of the block behind a block/highlight end. */
 export function workspaceOfEnd(state: State, end: LinkEnd): string | undefined {
+  if (end.kind === 'portal') return state.portals.find((p) => p.id === end.id)?.workspaceId
   const blockId = end.kind === 'block' ? end.id : state.highlights.find((h) => h.id === end.id)?.blockId
   return state.blocks.find((b) => b.id === blockId)?.workspaceId
 }
@@ -204,6 +213,7 @@ export function deleteWorkspace(state: State, id: string): State {
   const pairs = new Set(
     state.portals.filter((p) => p.workspaceId === id || p.targetWorkspaceId === id).map((p) => p.pairId),
   )
+  const portalIds = new Set(state.portals.filter((p) => pairs.has(p.pairId)).map((p) => p.id))
   const workspaces = state.workspaces.filter((w) => w.id !== id)
   return {
     ...state,
@@ -211,7 +221,7 @@ export function deleteWorkspace(state: State, id: string): State {
     presets: state.presets.filter((p) => p.workspaceId !== id),
     blocks: state.blocks.filter((b) => !blockIds.has(b.id)),
     highlights: state.highlights.filter((h) => !highlightIds.has(h.id)),
-    links: pruneLinks(state.links, { highlights: highlightIds, blocks: blockIds }),
+    links: pruneLinks(state.links, { highlights: highlightIds, blocks: blockIds, portals: portalIds }),
     windows: state.windows.filter((w) => !blockIds.has(w.blockId)),
     portals: state.portals.filter((p) => !pairs.has(p.pairId)),
     currentWorkspaceId: state.currentWorkspaceId === id ? workspaces[0].id : state.currentWorkspaceId,
@@ -268,11 +278,16 @@ export function createWorkspaceWithPortal(
   return createPortal(next, fromWorkspaceId, workspaceId, placement, opts)
 }
 
-/** Remove a portal and its counterpart. */
+/** Remove a portal and its counterpart, along with links to either side. */
 export function deletePortal(state: State, id: string): State {
   const portal = state.portals.find((p) => p.id === id)
   if (!portal) return state
-  return { ...state, portals: state.portals.filter((p) => p.pairId !== portal.pairId) }
+  const gone = new Set(state.portals.filter((p) => p.pairId === portal.pairId).map((p) => p.id))
+  return {
+    ...state,
+    portals: state.portals.filter((p) => !gone.has(p.id)),
+    links: pruneLinks(state.links, { portals: gone }),
+  }
 }
 
 export function movePortal(state: State, id: string, pos: Placement): State {
@@ -359,7 +374,9 @@ export function createBlock(state: State, workspaceId: string, block: NewBlock, 
 }
 
 function endExists(state: State, e: LinkEnd): boolean {
-  return e.kind === 'highlight' ? state.highlights.some((h) => h.id === e.id) : state.blocks.some((b) => b.id === e.id)
+  if (e.kind === 'highlight') return state.highlights.some((h) => h.id === e.id)
+  if (e.kind === 'block') return state.blocks.some((b) => b.id === e.id)
+  return state.portals.some((p) => p.id === e.id)
 }
 
 /**
@@ -380,16 +397,26 @@ export function createNote(
   return about ? addLink(next, { from: { kind: 'block', id }, to: about }) : next
 }
 
-/** Where to put a note window: to the right of the window it was created from. */
-export function notePlacement(source: Window, size = { width: 300, height: 200 }): WindowPlacement {
+export interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Where to put a note window: to the right of the element it was created from. */
+export function notePlacement(source: Box, size = { width: 300, height: 200 }): WindowPlacement {
   return { x: source.x + source.width + 24, y: source.y, ...size }
 }
 
-/** The window (if any) that shows a link end, for placing related windows nearby. */
-export function windowShowingEnd(state: State, end: LinkEnd): Window | undefined {
-  if (end.kind === 'block') return state.windows.find((w) => w.blockId === end.id)
-  const h = state.highlights.find((x) => x.id === end.id)
-  return h && state.windows.find((w) => w.blockId === h.blockId)
+/** The on-canvas box (window or portal) that shows a link end, for placing related windows nearby. */
+export function elementShowingEnd(state: State, end: LinkEnd): Box | undefined {
+  if (end.kind === 'portal') {
+    const p = state.portals.find((x) => x.id === end.id)
+    return p && { x: p.x, y: p.y, ...PORTAL_SIZE }
+  }
+  const blockId = end.kind === 'block' ? end.id : state.highlights.find((x) => x.id === end.id)?.blockId
+  return state.windows.find((w) => w.blockId === blockId)
 }
 
 /** Set a block's title; an empty title removes it. */
@@ -636,6 +663,11 @@ export function activePresetsFor(state: State, highlightId: string): Set<string>
 
 /** Human-readable description of a link end, for lists. */
 export function describeLinkEnd(state: State, end: LinkEnd, excerptLength = 40): string {
+  if (end.kind === 'portal') {
+    const p = state.portals.find((x) => x.id === end.id)
+    const target = p && state.workspaces.find((w) => w.id === p.targetWorkspaceId)
+    return target ? `Portal → ${target.name}` : '(missing portal)'
+  }
   if (end.kind === 'block') {
     const block = state.blocks.find((b) => b.id === end.id)
     return block ? blockLabel(block) : '(missing block)'

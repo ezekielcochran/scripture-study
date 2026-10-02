@@ -39,7 +39,7 @@ import {
   toggleHighlight,
   toggleLink,
   updatePreset,
-  windowShowingEnd,
+  elementShowingEnd,
   windowsIn,
 } from './actions'
 import type { State, Window } from './types'
@@ -207,13 +207,19 @@ describe('createBlock / notes', () => {
     expect(createNote(s, WS, { text: 'x' }, placement, bk('missing'))).toBe(s)
   })
 
-  test('notePlacement and windowShowingEnd', () => {
+  test('notePlacement and elementShowingEnd', () => {
     const source = win('w', 'doc', 1, { x: 100, y: 50, width: 340, height: 200 })
     expect(notePlacement(source, { width: 300, height: 200 })).toEqual({ x: 464, y: 50, width: 300, height: 200 })
-    const s: State = { ...base, windows: [source], highlights: [{ id: 'h', blockId: 'doc', start: 0, end: 3, presetId: 'p1' }] }
-    expect(windowShowingEnd(s, bk('doc'))?.id).toBe('w')
-    expect(windowShowingEnd(s, hl('h'))?.id).toBe('w')
-    expect(windowShowingEnd(s, hl('nope'))).toBeUndefined()
+    const s: State = {
+      ...base,
+      windows: [source],
+      highlights: [{ id: 'h', blockId: 'doc', start: 0, end: 3, presetId: 'p1' }],
+      portals: [{ id: 'pa', pairId: 'pr', workspaceId: WS, targetWorkspaceId: 'x', x: 5, y: 6, z: 1 }],
+    }
+    expect(elementShowingEnd(s, bk('doc'))).toMatchObject({ x: 100, y: 50 })
+    expect(elementShowingEnd(s, hl('h'))).toMatchObject({ x: 100, y: 50 })
+    expect(elementShowingEnd(s, { kind: 'portal', id: 'pa' })).toEqual({ x: 5, y: 6, width: 200, height: 100 })
+    expect(elementShowingEnd(s, hl('nope'))).toBeUndefined()
   })
 
   test('nextWindowPlacement centres the first window and steps later ones diagonally', () => {
@@ -540,6 +546,22 @@ describe('workspaces and portals', () => {
       ['ws2', WS],
     ])
     expect(createWorkspaceWithPortal(base, 'nope', 'x', placement)).toBe(base)
+  })
+
+  test('links can end on portals; deleting the pair prunes them', () => {
+    let s = createWorkspaceWithPortal(base, WS, 'Deep', placement, { workspaceId: 'ws2', pairId: 'pair', ids: ['pa', 'pb'] })
+    const pa = { kind: 'portal' as const, id: 'pa' }
+    s = addLink(s, { from: bk('doc'), to: pa, id: 'l1' })
+    s = addLink(s, { from: pa, to: bk('doc'), id: 'l2' })
+    expect(s.links.map((l) => l.id)).toEqual(['l1', 'l2'])
+    expect(addLink(s, { from: pa, to: { kind: 'portal', id: 'nope' } })).toBe(s)
+    expect(describeLinkEnd(s, pa)).toBe('Portal → Deep')
+    expect(describeLinkEnd(s, { kind: 'portal', id: 'nope' })).toBe('(missing portal)')
+    expect(linksIn(s, WS).map((l) => l.id)).toEqual(['l1', 'l2'])
+    expect(linksIn(s, 'ws2')).toEqual([])
+    expect(deletePortal(s, 'pb').links).toEqual([])
+    // Deleting the far workspace removes the pair and therefore the links too.
+    expect(deleteWorkspace(s, 'ws2').links).toEqual([])
   })
 
   test('deletePortal removes both sides; movePortal moves one', () => {

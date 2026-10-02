@@ -31,12 +31,12 @@ Block      { id, workspaceId, title?, text, createdAt, kind?: 'note' }   // note
 Preset     { id, workspaceId, name, style: { color?, background?, bold?, italic?, underline? }, shortcut? }
 Highlight  { id, blockId, start, end, presetId, note? }     // [start, end) offsets into block.text
 Link       { id, from: LinkEnd, to: LinkEnd, label? }
-LinkEnd    { kind: 'highlight' | 'block', id }             // a highlight, or a whole block
+LinkEnd    { kind: 'highlight' | 'block' | 'portal', id }  // a highlight, a whole block, or one side of a portal
 Window     { id, blockId, range?: { start, end }, x, y, width, height, z }
 Portal     { id, pairId, workspaceId, targetWorkspaceId, x, y, z }     // two-sided: both sides share pairId
 ```
 
-A window shows a whole block or a sub-range of one; a window lives on the workspace of its block, and the same block may appear in many windows. Presets belong to a workspace, and a new workspace starts with copies of the presets of the workspace it was created from. Links connect highlights and/or blocks (never windows), and are drawn on every window that shows an endpoint. Portals are canvas elements that jump to another workspace; creating one also creates its counterpart there, and deleting either side removes both. Storage is versioned (see `src/storage/envelope.ts`); older files migrate on load.
+A window shows a whole block or a sub-range of one; a window lives on the workspace of its block, and the same block may appear in many windows. Presets belong to a workspace, and a new workspace starts with copies of the presets of the workspace it was created from. Links connect highlights, blocks, and portals (never windows), and are drawn on every window that shows an endpoint. Portals are canvas elements that jump to another workspace; creating one also creates its counterpart there, and deleting either side removes both. Storage is versioned (see `src/storage/envelope.ts`); older files migrate on load.
 
 ## Architecture
 

@@ -89,6 +89,7 @@ describe('linksToEdges', () => {
       { id: 'ld', from: bk('doc2'), to: hl('h2') },
       { id: 'dd', from: bk('doc'), to: bk('doc2') },
       { id: 'far', from: bk('far'), to: bk('far') },
+      { id: 'lp', from: hl('h1'), to: { kind: 'portal', id: 'pa' } },
     ],
     windows: [
       ...state.windows,
@@ -103,11 +104,19 @@ describe('linksToEdges', () => {
     const edges = linksToEdges(linked, WS)
     expect(edges.length % 3).toBe(0)
     expect(mids(edges).filter((e) => e.id.startsWith('l')).map((e) => e.id).sort()).toEqual(
-      ['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c', 'ld:b:a'].sort(),
+      ['l1:a:b', 'l1:c:b', 'l2:a:a', 'l2:a:c', 'ld:b:a', 'lp:a:pa', 'lp:c:pa'].sort(),
     )
     expect(mids(edges).find((x) => x.id === 'l1:a:b')).toMatchObject({ source: 'a', sourceHandle: 'h1', target: 'b', targetHandle: 'h3', data: { linkId: 'l1', part: 'mid', label: 'cf.' } })
     expect(edges.some((e) => e.id.startsWith('far:'))).toBe(false)
     expect(mids(linksToEdges(linked, 'ws2')).map((e) => e.id)).toEqual(['far:f:f'])
+  })
+
+  test('portal ends attach to the portal node, layered by the portal z', () => {
+    const edges = linksToEdges(linked, WS)
+    expect(edges.find((e) => e.id === 'lp:a:pa:mid')).toMatchObject({ source: 'a', sourceHandle: 'h1', target: 'pa', targetHandle: 'portal:pa' })
+    // a has z 1, pa has z 3: lead b sits above the portal, the span above the lower window.
+    expect(edges.find((e) => e.id === 'lp:a:pa:b')!.zIndex).toBe(7)
+    expect(edges.find((e) => e.id === 'lp:a:pa:mid')!.zIndex).toBe(3)
   })
 
   test('block ends attach to the header handle of every window showing the block', () => {

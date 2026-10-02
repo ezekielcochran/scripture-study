@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
-import { createBlock, createNote, elementsIn, nextWindowPlacement, notePlacement, windowShowingEnd } from '../model/actions'
+import { createBlock, createNote, elementShowingEnd, elementsIn, nextWindowPlacement, notePlacement } from '../model/actions'
 import type { LinkEnd } from '../model/types'
 import { useUiStore } from '../store/uiStore'
 import { Dialog } from './Dialog'
@@ -29,7 +29,7 @@ export function NewBlockDialog({ onClose, note }: Props) {
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
     const centred = nextWindowPlacement(elementsIn(state, ws).length, center)
     if (note) {
-      const source = note.about && windowShowingEnd(state, note.about)
+      const source = note.about && elementShowingEnd(state, note.about)
       const placement = source ? notePlacement(source) : centred
       update((s) => createNote(s, ws, { title, text }, placement, note.about))
       // The armed end has been used; disarm it.

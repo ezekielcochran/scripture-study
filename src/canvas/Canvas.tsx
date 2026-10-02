@@ -110,7 +110,7 @@ export function Canvas() {
       )}
       {linkSource !== null && (
         <Panel position="bottom-center" className="rounded border border-accent bg-surface px-3 py-1.5 text-sm text-ink shadow">
-          Linking: click a highlight or a window's <b>Link</b> button to connect, press <b>New note</b> to attach a
+          Linking: click a highlight, or a window's or portal's <b>Link</b> button, to connect, press <b>New note</b> to attach a
           note, press or tap a preset to toggle the armed highlight's format, or Esc to cancel.
         </Panel>
       )}

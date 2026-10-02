@@ -21,7 +21,7 @@ export function PresetLegend() {
       <div className="mb-1 text-xs text-muted">
         Select text, then press a key or tap a preset.
         <br />
-        Click highlights or window Link buttons to connect them.
+        Click highlights or Link buttons to connect things.
       </div>
       <ul className="space-y-0.5">
         {presets.map((p) => (

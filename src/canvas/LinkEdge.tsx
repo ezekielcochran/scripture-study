@@ -3,7 +3,7 @@ import { BaseEdge, getStraightPath, useInternalNode, type EdgeProps } from '@xyf
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { deleteLink, setLinkLabel } from '../model/actions'
-import { isBlockHandle, type LinkEdge as LinkEdgeType } from '../lib/layout'
+import { isElementHandle, type LinkEdge as LinkEdgeType } from '../lib/layout'
 import { isDegenerate, linkPieces, type EdgeEnd, type LinkPart, type Point, type Rect } from '../lib/geometry'
 
 /** Screen rectangle of a window node, or null until React Flow has measured it. */
@@ -21,7 +21,7 @@ const LABEL_BOX = { width: 240, height: 32 }
 /**
  * One piece of a straight link between two ends (see linkPieces): the lead
  * inside window A, the span between windows, or the lead inside window B.
- * Block ends snap to the nearest edge of their window; highlight ends sit at
+ * Block and portal ends snap to the nearest edge of their node; highlight ends sit at
  * the highlight, clamped into the window. The label rides on the span piece and
  * lives inside the edge's own SVG so it is layered with the line.
  */
@@ -55,8 +55,8 @@ export function LinkEdge({
   const rawB: Point = { x: targetX, y: targetY }
   let pieces: Record<LinkPart, [Point, Point]>
   if (sourceRect && targetRect) {
-    const endA: EdgeEnd = { rect: sourceRect, ...(isBlockHandle(sourceHandleId) ? {} : { anchor: rawA }) }
-    const endB: EdgeEnd = { rect: targetRect, ...(isBlockHandle(targetHandleId) ? {} : { anchor: rawB }) }
+    const endA: EdgeEnd = { rect: sourceRect, ...(isElementHandle(sourceHandleId) ? {} : { anchor: rawA }) }
+    const endB: EdgeEnd = { rect: targetRect, ...(isElementHandle(targetHandleId) ? {} : { anchor: rawB }) }
     pieces = linkPieces(endA, endB)
   } else {
     // Until both windows are measured, draw the whole line as the span piece.

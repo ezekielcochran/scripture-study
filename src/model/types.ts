@@ -45,8 +45,8 @@ export interface Highlight {
   note?: string
 }
 
-/** One end of a link: a specific highlight, or a whole block. */
-export type LinkEnd = { kind: 'highlight'; id: string } | { kind: 'block'; id: string }
+/** One end of a link: a specific highlight, a whole block, or a portal (one side of a pair). */
+export type LinkEnd = { kind: 'highlight'; id: string } | { kind: 'block'; id: string } | { kind: 'portal'; id: string }
 
 export interface Link {
   id: string

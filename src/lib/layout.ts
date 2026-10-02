@@ -1,5 +1,6 @@
 import type { Edge, Node, NodeChange } from '@xyflow/react'
 import type { Highlight, LinkEnd, Portal, State, Window } from '../model/types'
+import { PORTAL_SIZE } from '../model/constants'
 import { bringToFront, linksIn, moveElement, portalsIn, resizeWindow, windowsIn } from '../model/actions'
 import type { RecordOptions } from '../store/history'
 import type { LinkPart } from './geometry'
@@ -20,7 +21,7 @@ export type PortalNode = Node<PortalNodeData, 'portal'>
 
 export type CanvasNode = WindowNode | PortalNode
 
-export const PORTAL_SIZE = { width: 200, height: 100 }
+export { PORTAL_SIZE }
 
 /** CSS class on the part of a window that drags it (the header). */
 export const DRAG_HANDLE_CLASS = 'window-drag-handle'
@@ -94,9 +95,9 @@ export function edgeZIndex(zA: number, zB: number): number {
   return Math.min(zA, zB) * 2 + 1
 }
 
-/** Is this handle id the block-level anchor in a window header? */
-export function isBlockHandle(handleId: string | null | undefined): boolean {
-  return typeof handleId === 'string' && handleId.startsWith('block:')
+/** Is this handle an element-level anchor (block header or portal) rather than a highlight? */
+export function isElementHandle(handleId: string | null | undefined): boolean {
+  return typeof handleId === 'string' && (handleId.startsWith('block:') || handleId.startsWith('portal:'))
 }
 
 /** Does the window show any part of the highlight? */
@@ -109,15 +110,29 @@ export function blockHandleId(blockId: string): string {
   return `block:${blockId}`
 }
 
-/** Windows where a link end is visible, and the handle id to attach to in each. */
-function resolveEnd(state: State, windows: Window[], end: LinkEnd): { windows: Window[]; handle: string } | null {
+/** Handle id used for a portal end, rendered inside the portal node. */
+export function portalHandleId(portalId: string): string {
+  return `portal:${portalId}`
+}
+
+interface Anchor {
+  nodeId: string
+  z: number
+}
+
+/** Canvas nodes where a link end is visible, and the handle id to attach to in each. */
+function resolveEnd(state: State, windows: Window[], portals: Portal[], end: LinkEnd): { nodes: Anchor[]; handle: string } | null {
+  if (end.kind === 'portal') {
+    const p = portals.find((x) => x.id === end.id)
+    return p ? { nodes: [{ nodeId: p.id, z: p.z }], handle: portalHandleId(p.id) } : null
+  }
   if (end.kind === 'highlight') {
     const h = state.highlights.find((x) => x.id === end.id)
     if (!h) return null
-    return { windows: windows.filter((w) => windowShows(w, h)), handle: h.id }
+    return { nodes: windows.filter((w) => windowShows(w, h)).map((w) => ({ nodeId: w.id, z: w.z })), handle: h.id }
   }
   if (!state.blocks.some((b) => b.id === end.id)) return null
-  return { windows: windows.filter((w) => w.blockId === end.id), handle: blockHandleId(end.id) }
+  return { nodes: windows.filter((w) => w.blockId === end.id).map((w) => ({ nodeId: w.id, z: w.z })), handle: blockHandleId(end.id) }
 }
 
 /**
@@ -129,12 +144,13 @@ function resolveEnd(state: State, windows: Window[], end: LinkEnd): { windows: W
 export function linksToEdges(state: State, workspaceId: string, opts: { elevateLinkId?: string | null } = {}): LinkEdge[] {
   const edges: LinkEdge[] = []
   const windows = windowsIn(state, workspaceId)
+  const portals = portalsIn(state, workspaceId)
   for (const link of linksIn(state, workspaceId)) {
-    const from = resolveEnd(state, windows, link.from)
-    const to = resolveEnd(state, windows, link.to)
+    const from = resolveEnd(state, windows, portals, link.from)
+    const to = resolveEnd(state, windows, portals, link.to)
     if (!from || !to) continue
-    for (const a of from.windows) {
-      for (const b of to.windows) {
+    for (const a of from.nodes) {
+      for (const b of to.nodes) {
         const elevated = link.id === opts.elevateLinkId
         const parts: [LinkPart, number][] = [
           ['a', nodeZIndex(a.z) + 1],
@@ -143,12 +159,12 @@ export function linksToEdges(state: State, workspaceId: string, opts: { elevateL
         ]
         for (const [part, z] of parts) {
           edges.push({
-            id: `${link.id}:${a.id}:${b.id}:${part}`,
+            id: `${link.id}:${a.nodeId}:${b.nodeId}:${part}`,
             type: 'link',
             zIndex: elevated ? ELEVATED_EDGE_Z_INDEX : z,
-            source: a.id,
+            source: a.nodeId,
             sourceHandle: from.handle,
-            target: b.id,
+            target: b.nodeId,
             targetHandle: to.handle,
             data: { linkId: link.id, part, ...(link.label ? { label: link.label } : {}) },
           })

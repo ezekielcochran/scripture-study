@@ -73,7 +73,10 @@ describe('validateState', () => {
       workspaces: [...seedState.workspaces, { id: 'w2', name: 'two' }],
       blocks: [{ id: 'd', workspaceId: 'ws-main', title: 't', text: 'abc', createdAt: 'c', kind: 'note' }],
       highlights: [{ id: 'h', blockId: 'd', start: 0, end: 1, presetId: 'p', note: 'n' }],
-      links: [{ id: 'l', from: { kind: 'block', id: 'd' }, to: { kind: 'highlight', id: 'h' } }],
+      links: [
+        { id: 'l', from: { kind: 'block', id: 'd' }, to: { kind: 'highlight', id: 'h' } },
+        { id: 'l2', from: { kind: 'portal', id: 'p' }, to: { kind: 'block', id: 'd' } },
+      ],
       windows: [{ id: 'w', blockId: 'd', range: { start: 0, end: 3 }, x: 0, y: 0, width: 1, height: 1, z: 0 }],
       portals: [{ id: 'p', pairId: 'pr', workspaceId: 'ws-main', targetWorkspaceId: 'w2', x: 0, y: 0, z: 1 }],
     }
