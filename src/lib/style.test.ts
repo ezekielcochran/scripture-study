@@ -35,9 +35,9 @@ describe('mergeStyles', () => {
 
 describe('styleForPresetIds', () => {
   const presets: Preset[] = [
-    { id: 'a', name: 'A', style: { background: 'yellow' } },
-    { id: 'b', name: 'B', style: { color: 'red', bold: true } },
-    { id: 'c', name: 'C', style: { color: 'blue', background: 'pink', italic: true } },
+    { id: 'a', workspaceId: 'ws', name: 'A', style: { background: 'yellow' } },
+    { id: 'b', workspaceId: 'ws', name: 'B', style: { color: 'red', bold: true } },
+    { id: 'c', workspaceId: 'ws', name: 'C', style: { color: 'blue', background: 'pink', italic: true } },
   ]
 
   test('combines non-conflicting properties', () => {

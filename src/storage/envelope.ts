@@ -4,7 +4,7 @@ import type { State } from '../model/types'
  * Everything that leaves the app (localStorage, export files, a future backend)
  * is wrapped in this envelope so the shape can be migrated when it changes.
  */
-export const CURRENT_VERSION = 2
+export const CURRENT_VERSION = 3
 
 export interface Envelope {
   app: 'text-study'
@@ -47,7 +47,38 @@ export function deserialize(json: string): ParseResult {
 function migrate(version: number, state: unknown): unknown {
   let s = state
   if (version < 2) s = migrateV1toV2(s)
+  if (version < 3) s = migrateV2toV3(s)
   return s
+}
+
+/**
+ * v2 had a single implicit workspace: { documents, presets, highlights, links, layouts }.
+ * v3 names it "main", renames documents to blocks, and adds workspaces, portals,
+ * per-workspace presets, flat windows, and currentWorkspaceId.
+ */
+function migrateV2toV3(state: unknown): unknown {
+  if (!isRecord(state)) return state
+  const ws = 'ws-main'
+  const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+  const renameEnd = (e: unknown) =>
+    isRecord(e) && e.kind === 'document' ? { ...e, kind: 'block' } : e
+  const layouts = arr(state.layouts)
+  const windows = layouts.flatMap((l) => (isRecord(l) ? arr(l.windows) : []))
+  const renameDocId = (o: unknown) => {
+    if (!isRecord(o)) return o
+    const { documentId, ...rest } = o
+    return { ...rest, blockId: documentId }
+  }
+  return {
+    workspaces: [{ id: ws, name: 'main' }],
+    blocks: arr(state.documents).map((d) => (isRecord(d) ? { ...d, workspaceId: ws } : d)),
+    presets: arr(state.presets).map((p) => (isRecord(p) ? { ...p, workspaceId: ws } : p)),
+    highlights: arr(state.highlights).map(renameDocId),
+    links: arr(state.links).map((l) => (isRecord(l) ? { ...l, from: renameEnd(l.from), to: renameEnd(l.to) } : l)),
+    windows: windows.map(renameDocId),
+    portals: [],
+    currentWorkspaceId: ws,
+  }
 }
 
 /** v1 links were highlight-to-highlight only: { fromHighlightId, toHighlightId }. */
@@ -84,17 +115,21 @@ function checkAll(items: unknown, name: string, check: (item: unknown) => boolea
   return bad === -1 ? null : `${name}[${bad}] is malformed`
 }
 
-const isDocument = (d: unknown) =>
-  isRecord(d) &&
-  isStr(d.id) &&
-  isOptStr(d.title) &&
-  isStr(d.text) &&
-  isStr(d.createdAt) &&
-  (d.kind === undefined || d.kind === 'note')
+const isWorkspace = (w: unknown) => isRecord(w) && isStr(w.id) && isStr(w.name)
+
+const isBlock = (b: unknown) =>
+  isRecord(b) &&
+  isStr(b.id) &&
+  isStr(b.workspaceId) &&
+  isOptStr(b.title) &&
+  isStr(b.text) &&
+  isStr(b.createdAt) &&
+  (b.kind === undefined || b.kind === 'note')
 
 const isPreset = (p: unknown) =>
   isRecord(p) &&
   isStr(p.id) &&
+  isStr(p.workspaceId) &&
   isStr(p.name) &&
   isOptStr(p.shortcut) &&
   isRecord(p.style) &&
@@ -107,14 +142,13 @@ const isPreset = (p: unknown) =>
 const isHighlight = (h: unknown) =>
   isRecord(h) &&
   isStr(h.id) &&
-  isStr(h.documentId) &&
+  isStr(h.blockId) &&
   isNum(h.start) &&
   isNum(h.end) &&
   isStr(h.presetId) &&
   isOptStr(h.note)
 
-const isLinkEnd = (e: unknown) =>
-  isRecord(e) && (e.kind === 'highlight' || e.kind === 'document') && isStr(e.id)
+const isLinkEnd = (e: unknown) => isRecord(e) && (e.kind === 'highlight' || e.kind === 'block') && isStr(e.id)
 
 const isLink = (l: unknown) =>
   isRecord(l) && isStr(l.id) && isLinkEnd(l.from) && isLinkEnd(l.to) && isOptStr(l.label)
@@ -124,7 +158,7 @@ const isRange = (r: unknown) => r === undefined || (isRecord(r) && isNum(r.start
 const isWindow = (w: unknown) =>
   isRecord(w) &&
   isStr(w.id) &&
-  isStr(w.documentId) &&
+  isStr(w.blockId) &&
   isRange(w.range) &&
   isNum(w.x) &&
   isNum(w.y) &&
@@ -132,17 +166,28 @@ const isWindow = (w: unknown) =>
   isNum(w.height) &&
   isNum(w.z)
 
-const isLayout = (l: unknown) =>
-  isRecord(l) && isStr(l.id) && isStr(l.name) && checkAll(l.windows, 'windows', isWindow) === null
+const isPortal = (p: unknown) =>
+  isRecord(p) &&
+  isStr(p.id) &&
+  isStr(p.pairId) &&
+  isStr(p.workspaceId) &&
+  isStr(p.targetWorkspaceId) &&
+  isNum(p.x) &&
+  isNum(p.y) &&
+  isNum(p.z)
 
 /** Returns a description of the first problem found, or null if `state` is a valid State. */
 export function validateState(state: unknown): string | null {
   if (!isRecord(state)) return 'state must be an object'
+  if (!Array.isArray(state.workspaces) || state.workspaces.length === 0) return 'workspaces must be a non-empty array'
+  if (!isStr(state.currentWorkspaceId)) return 'currentWorkspaceId must be a string'
   return (
-    checkAll(state.documents, 'documents', isDocument) ??
+    checkAll(state.workspaces, 'workspaces', isWorkspace) ??
+    checkAll(state.blocks, 'blocks', isBlock) ??
     checkAll(state.presets, 'presets', isPreset) ??
     checkAll(state.highlights, 'highlights', isHighlight) ??
     checkAll(state.links, 'links', isLink) ??
-    checkAll(state.layouts, 'layouts', isLayout)
+    checkAll(state.windows, 'windows', isWindow) ??
+    checkAll(state.portals, 'portals', isPortal)
   )
 }

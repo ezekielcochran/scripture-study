@@ -5,7 +5,16 @@ import type { StorageAdapter } from './adapter'
 import { startPersistence } from './persist'
 import { seedState } from '../model/seed'
 
-const empty: State = { documents: [], presets: [], highlights: [], links: [], layouts: [] }
+const empty: State = {
+  workspaces: [{ id: 'ws', name: 'main' }],
+  blocks: [],
+  presets: [],
+  highlights: [],
+  links: [],
+  windows: [],
+  portals: [],
+  currentWorkspaceId: 'ws',
+}
 
 function makeStore(initial: State) {
   return createStore<{ state: State; replace: (n: State) => void }>((set) => ({
@@ -45,7 +54,7 @@ describe('startPersistence', () => {
     const { adapter, saves } = memoryAdapter()
     await startPersistence(store, adapter, 100)
 
-    const a = { ...empty, documents: [] }
+    const a = { ...empty, blocks: [] }
     const b = { ...empty, links: [] }
     store.getState().replace(a)
     await vi.advanceTimersByTimeAsync(50)

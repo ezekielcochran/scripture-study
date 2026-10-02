@@ -5,7 +5,7 @@ import type { Highlight } from '../model/types'
 const text = 'abcdefghij' // 10 chars, offsets 0..10
 
 function hl(id: string, start: number, end: number, presetId = `p-${id}`): Highlight {
-  return { id, documentId: 'doc', start, end, presetId }
+  return { id, blockId: 'doc', start, end, presetId }
 }
 
 /** Compact view for assertions: [text, highlightIds] per segment. */

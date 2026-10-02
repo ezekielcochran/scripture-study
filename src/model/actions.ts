@@ -1,31 +1,33 @@
-import type { Document, Highlight, Layout, Link, LinkEnd, Preset, PresetStyle, State, Window } from './types'
+import type { Block, Highlight, Link, LinkEnd, Portal, Preset, PresetStyle, State, Window, Workspace } from './types'
 import { newId } from './id'
 import { adjustRange, applyEditToText, type Edit } from '../lib/ranges'
 
 // Every action is a pure function State -> State. Components call them through
 // the store's `update`, never mutating state themselves.
 
+// ---- Highlights ----------------------------------------------------------
+
 export interface NewHighlight {
-  documentId: string
+  blockId: string
   start: number
   end: number
   presetId: string
   id?: string
 }
 
-/** Add a highlight over [start, end) of a document. Empty or invalid ranges are ignored. */
+/** Add a highlight over [start, end) of a block. Empty or invalid ranges are ignored. */
 export function addHighlight(state: State, h: NewHighlight): State {
-  const doc = state.documents.find((d) => d.id === h.documentId)
-  if (!doc) return state
+  const block = state.blocks.find((b) => b.id === h.blockId)
+  if (!block) return state
   const start = Math.max(0, h.start)
-  const end = Math.min(doc.text.length, h.end)
+  const end = Math.min(block.text.length, h.end)
   if (start >= end) return state
   if (!state.presets.some((p) => p.id === h.presetId)) return state
   if (h.id !== undefined && state.highlights.some((x) => x.id === h.id)) return state
 
   const highlight: Highlight = {
     id: h.id ?? newId('hl'),
-    documentId: h.documentId,
+    blockId: h.blockId,
     start,
     end,
     presetId: h.presetId,
@@ -37,10 +39,10 @@ export function sameEnd(a: LinkEnd, b: LinkEnd): boolean {
   return a.kind === b.kind && a.id === b.id
 }
 
-/** Links that touch none of the given highlights or documents. */
-export function pruneLinks(links: Link[], removed: { highlights?: Set<string>; documents?: Set<string> }): Link[] {
+/** Links that touch none of the given highlights or blocks. */
+export function pruneLinks(links: Link[], removed: { highlights?: Set<string>; blocks?: Set<string> }): Link[] {
   const gone = (e: LinkEnd) =>
-    e.kind === 'highlight' ? removed.highlights?.has(e.id) === true : removed.documents?.has(e.id) === true
+    e.kind === 'highlight' ? removed.highlights?.has(e.id) === true : removed.blocks?.has(e.id) === true
   return links.filter((l) => !gone(l.from) && !gone(l.to))
 }
 
@@ -61,13 +63,13 @@ export function removeHighlight(state: State, id: string): State {
  * piece so links survive). Otherwise a new highlight is added.
  */
 export function toggleHighlight(state: State, h: NewHighlight): State {
-  const doc = state.documents.find((d) => d.id === h.documentId)
-  if (!doc) return state
+  const block = state.blocks.find((b) => b.id === h.blockId)
+  if (!block) return state
   const start = Math.max(0, h.start)
-  const end = Math.min(doc.text.length, h.end)
+  const end = Math.min(block.text.length, h.end)
   if (start >= end) return state
   const existing = state.highlights.find(
-    (x) => x.documentId === h.documentId && x.presetId === h.presetId && x.start <= start && x.end >= end,
+    (x) => x.blockId === h.blockId && x.presetId === h.presetId && x.start <= start && x.end >= end,
   )
   if (!existing) return addHighlight(state, h)
   if (existing.start === start && existing.end === end) return removeHighlight(state, existing.id)
@@ -82,19 +84,21 @@ export function presetForShortcut(presets: Preset[], key: string): Preset | unde
   return presets.find((p) => p.shortcut !== undefined && p.shortcut === key)
 }
 
+// ---- Text editing --------------------------------------------------------
+
 /**
- * Apply a text edit to a document. In the same transaction, every highlight and
- * window sub-range over the document is adjusted; highlights whose text is
+ * Apply a text edit to a block. In the same transaction, every highlight and
+ * window sub-range over the block is adjusted; highlights whose text is
  * entirely deleted are removed together with their links, and a window whose
- * sub-range is entirely deleted falls back to showing the whole document.
+ * sub-range is entirely deleted falls back to showing the whole block.
  * Out-of-bounds edits are ignored.
  */
-export function editDocument(state: State, documentId: string, edit: Edit): State {
-  const doc = state.documents.find((d) => d.id === documentId)
-  if (!doc) return state
+export function editBlock(state: State, blockId: string, edit: Edit): State {
+  const block = state.blocks.find((b) => b.id === blockId)
+  if (!block) return state
   let text: string
   try {
-    text = applyEditToText(doc.text, edit)
+    text = applyEditToText(block.text, edit)
   } catch {
     return state
   }
@@ -102,7 +106,7 @@ export function editDocument(state: State, documentId: string, edit: Edit): Stat
   const removed = new Set<string>()
   const highlights: Highlight[] = []
   for (const h of state.highlights) {
-    if (h.documentId !== documentId) {
+    if (h.blockId !== blockId) {
       highlights.push(h)
       continue
     }
@@ -110,31 +114,175 @@ export function editDocument(state: State, documentId: string, edit: Edit): Stat
     if (next) highlights.push({ ...h, ...next })
     else removed.add(h.id)
   }
-  const links = pruneLinks(state.links, { highlights: removed })
 
-  const layouts = state.layouts.map((layout) => ({
-    ...layout,
-    windows: layout.windows.map((w) => {
-      if (w.documentId !== documentId || !w.range) return w
-      const next = adjustRange(w.range, edit, { inclusive: true })
-      if (next) return { ...w, range: next }
-      const { range: _dropped, ...rest } = w
-      return rest
-    }),
-  }))
+  const windows = state.windows.map((w) => {
+    if (w.blockId !== blockId || !w.range) return w
+    const next = adjustRange(w.range, edit, { inclusive: true })
+    if (next) return { ...w, range: next }
+    const { range: _dropped, ...rest } = w
+    return rest
+  })
 
   return {
     ...state,
-    documents: state.documents.map((d) => (d.id === documentId ? { ...d, text } : d)),
+    blocks: state.blocks.map((b) => (b.id === blockId ? { ...b, text } : b)),
     highlights,
-    links,
-    layouts,
+    links: pruneLinks(state.links, { highlights: removed }),
+    windows,
   }
 }
 
-// ---- Documents and windows ----------------------------------------------
+// ---- Workspaces ----------------------------------------------------------
 
-export interface NewDocument {
+export function currentWorkspace(state: State): Workspace {
+  return state.workspaces.find((w) => w.id === state.currentWorkspaceId) ?? state.workspaces[0]
+}
+
+/** Blocks belonging to a workspace. */
+export function blocksIn(state: State, workspaceId: string): Block[] {
+  return state.blocks.filter((b) => b.workspaceId === workspaceId)
+}
+
+/** Windows on a workspace's canvas (a window lives where its block does). */
+export function windowsIn(state: State, workspaceId: string): Window[] {
+  const ids = new Set(blocksIn(state, workspaceId).map((b) => b.id))
+  return state.windows.filter((w) => ids.has(w.blockId))
+}
+
+export function portalsIn(state: State, workspaceId: string): Portal[] {
+  return state.portals.filter((p) => p.workspaceId === workspaceId)
+}
+
+/** A workspace's presets, in priority order. */
+export function presetsIn(state: State, workspaceId: string): Preset[] {
+  return state.presets.filter((p) => p.workspaceId === workspaceId)
+}
+
+/** Workspace of a link end, via its block. */
+export function workspaceOfEnd(state: State, end: LinkEnd): string | undefined {
+  const blockId = end.kind === 'block' ? end.id : state.highlights.find((h) => h.id === end.id)?.blockId
+  return state.blocks.find((b) => b.id === blockId)?.workspaceId
+}
+
+/** Links whose ends are in a workspace. */
+export function linksIn(state: State, workspaceId: string): Link[] {
+  return state.links.filter((l) => workspaceOfEnd(state, l.from) === workspaceId || workspaceOfEnd(state, l.to) === workspaceId)
+}
+
+/**
+ * Add a workspace. When `copyPresetsFrom` names an existing workspace, the new
+ * one starts with copies of its presets (fresh ids, same order).
+ */
+export function addWorkspace(state: State, name: string, id = newId('ws'), copyPresetsFrom?: string): State {
+  const trimmed = name.trim() || 'untitled'
+  const copies: Preset[] = copyPresetsFrom
+    ? presetsIn(state, copyPresetsFrom).map((p) => ({ ...p, id: newId('preset'), workspaceId: id, style: { ...p.style } }))
+    : []
+  return { ...state, workspaces: [...state.workspaces, { id, name: trimmed }], presets: [...state.presets, ...copies] }
+}
+
+export function renameWorkspace(state: State, id: string, name: string): State {
+  if (!state.workspaces.some((w) => w.id === id)) return state
+  const trimmed = name.trim()
+  return { ...state, workspaces: state.workspaces.map((w) => (w.id === id ? { ...w, name: trimmed || w.name } : w)) }
+}
+
+export function switchWorkspace(state: State, id: string): State {
+  if (id === state.currentWorkspaceId || !state.workspaces.some((w) => w.id === id)) return state
+  return { ...state, currentWorkspaceId: id }
+}
+
+/**
+ * Delete a workspace with everything on it: its blocks, their highlights and
+ * links, their windows, and every portal on it or leading to it (both sides).
+ * The last remaining workspace cannot be deleted.
+ */
+export function deleteWorkspace(state: State, id: string): State {
+  if (!state.workspaces.some((w) => w.id === id) || state.workspaces.length <= 1) return state
+  const blockIds = new Set(blocksIn(state, id).map((b) => b.id))
+  const highlightIds = new Set(state.highlights.filter((h) => blockIds.has(h.blockId)).map((h) => h.id))
+  const pairs = new Set(
+    state.portals.filter((p) => p.workspaceId === id || p.targetWorkspaceId === id).map((p) => p.pairId),
+  )
+  const workspaces = state.workspaces.filter((w) => w.id !== id)
+  return {
+    ...state,
+    workspaces,
+    presets: state.presets.filter((p) => p.workspaceId !== id),
+    blocks: state.blocks.filter((b) => !blockIds.has(b.id)),
+    highlights: state.highlights.filter((h) => !highlightIds.has(h.id)),
+    links: pruneLinks(state.links, { highlights: highlightIds, blocks: blockIds }),
+    windows: state.windows.filter((w) => !blockIds.has(w.blockId)),
+    portals: state.portals.filter((p) => !pairs.has(p.pairId)),
+    currentWorkspaceId: state.currentWorkspaceId === id ? workspaces[0].id : state.currentWorkspaceId,
+  }
+}
+
+// ---- Portals -------------------------------------------------------------
+
+export interface Placement {
+  x: number
+  y: number
+}
+
+/** Top z on a workspace's canvas, across windows and portals. */
+function topZ(state: State, workspaceId: string): number {
+  return Math.max(0, ...windowsIn(state, workspaceId).map((w) => w.z), ...portalsIn(state, workspaceId).map((p) => p.z))
+}
+
+/**
+ * Create a two-sided portal between two different workspaces: one side at
+ * `placement` on `fromWorkspaceId`, its counterpart on the target (placed by
+ * `counterpartPlacement`, defaulting to a cascade near the origin).
+ */
+export function createPortal(
+  state: State,
+  fromWorkspaceId: string,
+  targetWorkspaceId: string,
+  placement: Placement,
+  opts: { pairId?: string; ids?: [string, string]; counterpartPlacement?: Placement } = {},
+): State {
+  if (fromWorkspaceId === targetWorkspaceId) return state
+  const exists = (id: string) => state.workspaces.some((w) => w.id === id)
+  if (!exists(fromWorkspaceId) || !exists(targetWorkspaceId)) return state
+  const pairId = opts.pairId ?? newId('pair')
+  const [idA, idB] = opts.ids ?? [newId('portal'), newId('portal')]
+  // Counterparts cascade from below the legend's corner so the first one is not hidden under it.
+  const back = opts.counterpartPlacement ?? nextPlacement(elementsIn(state, targetWorkspaceId).length, { x: 160, y: 280 })
+  const a: Portal = { id: idA, pairId, workspaceId: fromWorkspaceId, targetWorkspaceId, ...placement, z: topZ(state, fromWorkspaceId) + 1 }
+  const b: Portal = { id: idB, pairId, workspaceId: targetWorkspaceId, targetWorkspaceId: fromWorkspaceId, ...back, z: topZ(state, targetWorkspaceId) + 1 }
+  return { ...state, portals: [...state.portals, a, b] }
+}
+
+/** Create a new named workspace and a portal pair joining it to `fromWorkspaceId`, as one change. */
+export function createWorkspaceWithPortal(
+  state: State,
+  fromWorkspaceId: string,
+  name: string,
+  placement: Placement,
+  opts: { workspaceId?: string; pairId?: string; ids?: [string, string] } = {},
+): State {
+  if (!state.workspaces.some((w) => w.id === fromWorkspaceId)) return state
+  const workspaceId = opts.workspaceId ?? newId('ws')
+  const next = addWorkspace(state, name, workspaceId, fromWorkspaceId)
+  return createPortal(next, fromWorkspaceId, workspaceId, placement, opts)
+}
+
+/** Remove a portal and its counterpart. */
+export function deletePortal(state: State, id: string): State {
+  const portal = state.portals.find((p) => p.id === id)
+  if (!portal) return state
+  return { ...state, portals: state.portals.filter((p) => p.pairId !== portal.pairId) }
+}
+
+export function movePortal(state: State, id: string, pos: Placement): State {
+  if (!state.portals.some((p) => p.id === id)) return state
+  return { ...state, portals: state.portals.map((p) => (p.id === id ? { ...p, x: pos.x, y: pos.y } : p)) }
+}
+
+// ---- Blocks and windows --------------------------------------------------
+
+export interface NewBlock {
   text: string
   title?: string
   id?: string
@@ -142,12 +290,12 @@ export interface NewDocument {
   kind?: 'note'
 }
 
-export function isNote(d: Document): boolean {
-  return d.kind === 'note'
+export function isNote(b: Block): boolean {
+  return b.kind === 'note'
 }
 
-export function documentLabel(d: Document): string {
-  return d.title ?? (isNote(d) ? 'Untitled note' : 'Untitled')
+export function blockLabel(b: Block): string {
+  return b.title ?? (isNote(b) ? 'Untitled note' : 'Untitled')
 }
 
 export interface WindowPlacement {
@@ -158,48 +306,78 @@ export interface WindowPlacement {
   id?: string
 }
 
-/** Add a document and open a window for it in the given layout, as one change. */
-export function createDocument(
-  state: State,
-  layoutId: string,
-  doc: NewDocument,
-  placement: WindowPlacement,
-): State {
-  const layout = state.layouts.find((l) => l.id === layoutId)
-  if (!layout) return state
-  const document: Document = {
-    id: doc.id ?? newId('doc'),
-    text: doc.text,
-    createdAt: doc.createdAt ?? new Date().toISOString(),
-    ...(doc.title?.trim() ? { title: doc.title.trim() } : {}),
-    ...(doc.kind ? { kind: doc.kind } : {}),
+/** Everything occupying a workspace's canvas, for cascading placement. */
+export function elementsIn(state: State, workspaceId: string): { x: number; y: number }[] {
+  return [...windowsIn(state, workspaceId), ...portalsIn(state, workspaceId)]
+}
+
+/** Step a position diagonally by how many elements already exist, so new ones do not stack exactly. */
+export function nextPlacement(count: number, center: Placement, step = 24): Placement {
+  const offset = (count % 8) * step
+  return { x: Math.round(center.x + offset), y: Math.round(center.y + offset) }
+}
+
+/** Where to put the next window: centred on `center`, cascaded by the number of existing elements. */
+export function nextWindowPlacement(
+  count: number,
+  center: Placement,
+  size = { width: 420, height: 260 },
+  step = 24,
+): WindowPlacement {
+  const p = nextPlacement(count, { x: center.x - size.width / 2, y: center.y - size.height / 2 }, step)
+  return { ...p, ...size }
+}
+
+/** Open a new window showing an existing block, above the others on its workspace. */
+export function openWindow(state: State, blockId: string, placement: WindowPlacement): State {
+  const block = state.blocks.find((b) => b.id === blockId)
+  if (!block) return state
+  const window: Window = {
+    id: placement.id ?? newId('win'),
+    blockId,
+    x: placement.x,
+    y: placement.y,
+    width: placement.width,
+    height: placement.height,
+    z: topZ(state, block.workspaceId) + 1,
   }
-  return openWindow({ ...state, documents: [...state.documents, document] }, layoutId, document.id, placement)
+  return { ...state, windows: [...state.windows, window] }
+}
+
+/** Add a block to a workspace and open a window for it, as one change. */
+export function createBlock(state: State, workspaceId: string, block: NewBlock, placement: WindowPlacement): State {
+  if (!state.workspaces.some((w) => w.id === workspaceId)) return state
+  const b: Block = {
+    id: block.id ?? newId('blk'),
+    workspaceId,
+    text: block.text,
+    createdAt: block.createdAt ?? new Date().toISOString(),
+    ...(block.title?.trim() ? { title: block.title.trim() } : {}),
+    ...(block.kind ? { kind: block.kind } : {}),
+  }
+  return openWindow({ ...state, blocks: [...state.blocks, b] }, b.id, placement)
+}
+
+function endExists(state: State, e: LinkEnd): boolean {
+  return e.kind === 'highlight' ? state.highlights.some((h) => h.id === e.id) : state.blocks.some((b) => b.id === e.id)
 }
 
 /**
- * Create a note: a note document and a window for it, plus (when `about` is
- * given) a link from the note to that highlight or document, as one change.
+ * Create a note on a workspace: a note block and a window for it, plus (when
+ * `about` is given) a link from the note to that highlight or block, as one change.
  */
 export function createNote(
   state: State,
-  layoutId: string,
-  note: Omit<NewDocument, 'kind'>,
+  workspaceId: string,
+  note: Omit<NewBlock, 'kind'>,
   placement: WindowPlacement,
   about?: LinkEnd,
 ): State {
   if (about && !endExists(state, about)) return state
   const id = note.id ?? newId('note')
-  const next = createDocument(state, layoutId, { ...note, id, kind: 'note' }, placement)
+  const next = createBlock(state, workspaceId, { ...note, id, kind: 'note' }, placement)
   if (next === state) return state
-  return about ? addLink(next, { from: { kind: 'document', id }, to: about }) : next
-}
-
-/** The window (if any) that shows a link end, for placing related windows nearby. */
-export function windowShowingEnd(state: State, layout: Layout, end: LinkEnd): Window | undefined {
-  if (end.kind === 'document') return layout.windows.find((w) => w.documentId === end.id)
-  const h = state.highlights.find((x) => x.id === end.id)
-  return h && layout.windows.find((w) => w.documentId === h.documentId)
+  return about ? addLink(next, { from: { kind: 'block', id }, to: about }) : next
 }
 
 /** Where to put a note window: to the right of the window it was created from. */
@@ -207,27 +385,107 @@ export function notePlacement(source: Window, size = { width: 300, height: 200 }
   return { x: source.x + source.width + 24, y: source.y, ...size }
 }
 
-/**
- * Where to put the next window so it does not sit exactly on top of the last
- * one: centred on `center`, stepped diagonally by the number of windows.
- */
-export function nextWindowPlacement(
-  windows: Window[],
-  center: { x: number; y: number },
-  size = { width: 420, height: 260 },
-  step = 24,
-): WindowPlacement {
-  const offset = (windows.length % 8) * step
+/** The window (if any) that shows a link end, for placing related windows nearby. */
+export function windowShowingEnd(state: State, end: LinkEnd): Window | undefined {
+  if (end.kind === 'block') return state.windows.find((w) => w.blockId === end.id)
+  const h = state.highlights.find((x) => x.id === end.id)
+  return h && state.windows.find((w) => w.blockId === h.blockId)
+}
+
+/** Set a block's title; an empty title removes it. */
+export function setBlockTitle(state: State, id: string, title: string): State {
+  if (!state.blocks.some((b) => b.id === id)) return state
+  const trimmed = title.trim()
   return {
-    x: Math.round(center.x - size.width / 2 + offset),
-    y: Math.round(center.y - size.height / 2 + offset),
-    ...size,
+    ...state,
+    blocks: state.blocks.map((b) => {
+      if (b.id !== id) return b
+      const { title: _old, ...rest } = b
+      return trimmed ? { ...rest, title: trimmed } : rest
+    }),
   }
+}
+
+/** Remove a block with its highlights, the links touching either, and every window showing it. */
+export function deleteBlock(state: State, id: string): State {
+  if (!state.blocks.some((b) => b.id === id)) return state
+  const removed = new Set(state.highlights.filter((h) => h.blockId === id).map((h) => h.id))
+  return {
+    ...state,
+    blocks: state.blocks.filter((b) => b.id !== id),
+    highlights: state.highlights.filter((h) => h.blockId !== id),
+    links: pruneLinks(state.links, { highlights: removed, blocks: new Set([id]) }),
+    windows: state.windows.filter((w) => w.blockId !== id),
+  }
+}
+
+/** The window showing the whole of a block, if one is open. */
+export function findOpenWindow(state: State, blockId: string): Window | undefined {
+  return state.windows.find((w) => w.blockId === blockId && !w.range)
+}
+
+/**
+ * Show a block: bring its existing whole-block window to the front, or open a
+ * new one if there is none. Never opens a duplicate.
+ */
+export function openBlock(state: State, blockId: string, placement: WindowPlacement): State {
+  const existing = findOpenWindow(state, blockId)
+  return existing ? bringToFront(state, existing.id) : openWindow(state, blockId, placement)
+}
+
+// ---- Window management ---------------------------------------------------
+
+export function moveWindow(state: State, windowId: string, pos: Placement): State {
+  if (!state.windows.some((w) => w.id === windowId)) return state
+  return { ...state, windows: state.windows.map((w) => (w.id === windowId ? { ...w, x: pos.x, y: pos.y } : w)) }
+}
+
+/** Move whichever canvas element (window or portal) has this id. */
+export function moveElement(state: State, id: string, pos: Placement): State {
+  return state.windows.some((w) => w.id === id) ? moveWindow(state, id, pos) : movePortal(state, id, pos)
+}
+
+export function resizeWindow(state: State, windowId: string, size: { width: number; height: number }): State {
+  if (!state.windows.some((w) => w.id === windowId) || size.width <= 0 || size.height <= 0) return state
+  return {
+    ...state,
+    windows: state.windows.map((w) => (w.id === windowId ? { ...w, width: size.width, height: size.height } : w)),
+  }
+}
+
+/**
+ * Put a window or portal on top of everything else on its workspace, renumbering
+ * z values compactly from 1. No change if it is already alone on top.
+ */
+export function bringToFront(state: State, id: string): State {
+  const win = state.windows.find((w) => w.id === id)
+  const portal = state.portals.find((p) => p.id === id)
+  const workspaceId = win ? state.blocks.find((b) => b.id === win.blockId)?.workspaceId : portal?.workspaceId
+  if (!workspaceId) return state
+  const elements: { id: string; z: number }[] = [...windowsIn(state, workspaceId), ...portalsIn(state, workspaceId)]
+  const top = Math.max(...elements.map((e) => e.z))
+  const me = elements.find((e) => e.id === id)!
+  if (me.z === top && elements.filter((e) => e.z === top).length === 1) return state
+  const order = elements.filter((e) => e.id !== id).sort((a, b) => a.z - b.z)
+  order.push(me)
+  const z = new Map(order.map((e, i) => [e.id, i + 1]))
+  return {
+    ...state,
+    windows: state.windows.map((w) => (z.has(w.id) ? { ...w, z: z.get(w.id)! } : w)),
+    portals: state.portals.map((p) => (z.has(p.id) ? { ...p, z: z.get(p.id)! } : p)),
+  }
+}
+
+/** Remove a window. The block and its highlights are untouched. */
+export function closeWindow(state: State, windowId: string): State {
+  if (!state.windows.some((w) => w.id === windowId)) return state
+  return { ...state, windows: state.windows.filter((w) => w.id !== windowId) }
 }
 
 // ---- Presets -------------------------------------------------------------
 
 export interface NewPreset {
+  workspaceId: string
   name: string
   style: PresetStyle
   shortcut?: string
@@ -235,8 +493,10 @@ export interface NewPreset {
 }
 
 export function addPreset(state: State, p: NewPreset): State {
+  if (!state.workspaces.some((w) => w.id === p.workspaceId)) return state
   const preset: Preset = {
     id: p.id ?? newId('preset'),
+    workspaceId: p.workspaceId,
     name: p.name,
     style: { ...p.style },
     ...(p.shortcut ? { shortcut: p.shortcut } : {}),
@@ -268,17 +528,23 @@ export function updatePreset(
 }
 
 /**
- * Move a preset up (delta < 0) or down (delta > 0) the list. List order is the
- * priority used to resolve conflicting styles where highlights overlap.
+ * Move a preset up (delta < 0) or down (delta > 0) within its workspace's list.
+ * List order is the priority used to resolve conflicting styles where highlights overlap.
  */
 export function movePreset(state: State, id: string, delta: number): State {
-  const from = state.presets.findIndex((p) => p.id === id)
-  if (from === -1) return state
-  const to = Math.min(Math.max(from + delta, 0), state.presets.length - 1)
+  const preset = state.presets.find((p) => p.id === id)
+  if (!preset) return state
+  const mine = presetsIn(state, preset.workspaceId)
+  const from = mine.findIndex((p) => p.id === id)
+  const to = Math.min(Math.max(from + delta, 0), mine.length - 1)
   if (to === from) return state
+  const reordered = [...mine]
+  const [p] = reordered.splice(from, 1)
+  reordered.splice(to, 0, p)
+  // Keep other workspaces' presets where they are; slot the reordered ones into this workspace's positions.
+  const slots = state.presets.map((x, i) => (x.workspaceId === preset.workspaceId ? i : -1)).filter((i) => i >= 0)
   const presets = [...state.presets]
-  const [p] = presets.splice(from, 1)
-  presets.splice(to, 0, p)
+  slots.forEach((slot, i) => (presets[slot] = reordered[i]))
   return { ...state, presets }
 }
 
@@ -299,84 +565,6 @@ export function shortcutConflict(presets: Preset[], shortcut: string, excludeId?
   return presets.find((p) => p.id !== excludeId && p.shortcut !== undefined && p.shortcut === shortcut)
 }
 
-// ---- Windows -------------------------------------------------------------
-
-function mapWindow(state: State, windowId: string, fn: (w: Window, layout: Layout) => Window): State {
-  return {
-    ...state,
-    layouts: state.layouts.map((layout) => ({
-      ...layout,
-      windows: layout.windows.map((w) => (w.id === windowId ? fn(w, layout) : w)),
-    })),
-  }
-}
-
-function hasWindow(state: State, windowId: string): boolean {
-  return state.layouts.some((l) => l.windows.some((w) => w.id === windowId))
-}
-
-export function moveWindow(state: State, windowId: string, pos: { x: number; y: number }): State {
-  if (!hasWindow(state, windowId)) return state
-  return mapWindow(state, windowId, (w) => ({ ...w, x: pos.x, y: pos.y }))
-}
-
-export function resizeWindow(state: State, windowId: string, size: { width: number; height: number }): State {
-  if (!hasWindow(state, windowId) || size.width <= 0 || size.height <= 0) return state
-  return mapWindow(state, windowId, (w) => ({ ...w, width: size.width, height: size.height }))
-}
-
-/**
- * Give the window the highest z in its layout, renumbering the others compactly
- * from 1 so z values stay small. No change if it is already alone on top.
- */
-export function bringToFront(state: State, windowId: string): State {
-  const layout = state.layouts.find((l) => l.windows.some((w) => w.id === windowId))
-  if (!layout) return state
-  const top = Math.max(...layout.windows.map((w) => w.z))
-  const win = layout.windows.find((w) => w.id === windowId)!
-  if (win.z === top && layout.windows.filter((w) => w.z === top).length === 1) return state
-  const order = [...layout.windows].sort((a, b) => a.z - b.z).filter((w) => w.id !== windowId)
-  order.push(win)
-  const z = new Map(order.map((w, i) => [w.id, i + 1]))
-  return {
-    ...state,
-    layouts: state.layouts.map((l) =>
-      l.id === layout.id ? { ...l, windows: l.windows.map((w) => ({ ...w, z: z.get(w.id)! })) } : l,
-    ),
-  }
-}
-
-/** Remove a window. The document and its highlights are untouched. */
-export function closeWindow(state: State, windowId: string): State {
-  if (!hasWindow(state, windowId)) return state
-  return {
-    ...state,
-    layouts: state.layouts.map((layout) => ({
-      ...layout,
-      windows: layout.windows.filter((w) => w.id !== windowId),
-    })),
-  }
-}
-
-/** Open a new window showing an existing document, above the others in the layout. */
-export function openWindow(state: State, layoutId: string, documentId: string, placement: WindowPlacement): State {
-  const layout = state.layouts.find((l) => l.id === layoutId)
-  if (!layout || !state.documents.some((d) => d.id === documentId)) return state
-  const window: Window = {
-    id: placement.id ?? newId('win'),
-    documentId,
-    x: placement.x,
-    y: placement.y,
-    width: placement.width,
-    height: placement.height,
-    z: layout.windows.reduce((max, w) => Math.max(max, w.z), 0) + 1,
-  }
-  return {
-    ...state,
-    layouts: state.layouts.map((l) => (l.id === layoutId ? { ...l, windows: [...l.windows, window] } : l)),
-  }
-}
-
 // ---- Links ---------------------------------------------------------------
 
 export interface NewLink {
@@ -386,14 +574,8 @@ export interface NewLink {
   id?: string
 }
 
-function endExists(state: State, e: LinkEnd): boolean {
-  return e.kind === 'highlight'
-    ? state.highlights.some((h) => h.id === e.id)
-    : state.documents.some((d) => d.id === e.id)
-}
-
 /**
- * Link two distinct existing ends (highlights and/or documents).
+ * Link two distinct existing ends (highlights and/or blocks).
  * An identical link (same ends, same direction) is not added twice.
  */
 export function addLink(state: State, l: NewLink): State {
@@ -409,14 +591,10 @@ export function addLink(state: State, l: NewLink): State {
   return { ...state, links: [...state.links, link] }
 }
 
-/**
- * Click-to-link toggle: if a link already joins these two ends (in either
- * direction) remove it, otherwise add one.
- */
+/** Click-to-link toggle: if a link already joins these two ends (in either direction) remove it, otherwise add one. */
 export function toggleLink(state: State, l: NewLink): State {
   const existing = state.links.find(
-    (x) =>
-      (sameEnd(x.from, l.from) && sameEnd(x.to, l.to)) || (sameEnd(x.from, l.to) && sameEnd(x.to, l.from)),
+    (x) => (sameEnd(x.from, l.from) && sameEnd(x.to, l.to)) || (sameEnd(x.from, l.to) && sameEnd(x.to, l.from)),
   )
   return existing ? deleteLink(state, existing.id) : addLink(state, l)
 }
@@ -440,51 +618,6 @@ export function deleteLink(state: State, id: string): State {
   return { ...state, links: state.links.filter((l) => l.id !== id) }
 }
 
-// ---- Documents: rename, delete, open-or-focus ---------------------------
-
-/** Set a document's title; an empty title removes it. */
-export function setDocumentTitle(state: State, id: string, title: string): State {
-  if (!state.documents.some((d) => d.id === id)) return state
-  const trimmed = title.trim()
-  return {
-    ...state,
-    documents: state.documents.map((d) => {
-      if (d.id !== id) return d
-      const { title: _old, ...rest } = d
-      return trimmed ? { ...rest, title: trimmed } : rest
-    }),
-  }
-}
-
-/** Remove a document with its highlights, the links touching them, and every window showing it. */
-export function deleteDocument(state: State, id: string): State {
-  if (!state.documents.some((d) => d.id === id)) return state
-  const removed = new Set(state.highlights.filter((h) => h.documentId === id).map((h) => h.id))
-  return {
-    ...state,
-    documents: state.documents.filter((d) => d.id !== id),
-    highlights: state.highlights.filter((h) => h.documentId !== id),
-    links: pruneLinks(state.links, { highlights: removed, documents: new Set([id]) }),
-    layouts: state.layouts.map((l) => ({ ...l, windows: l.windows.filter((w) => w.documentId !== id) })),
-  }
-}
-
-/** The window showing the whole of a document in this layout, if one is open. */
-export function findOpenWindow(layout: Layout, documentId: string): Window | undefined {
-  return layout.windows.find((w) => w.documentId === documentId && !w.range)
-}
-
-/**
- * Show a document: bring its existing whole-document window to the front, or
- * open a new one if there is none. Never opens a duplicate.
- */
-export function openDocument(state: State, layoutId: string, documentId: string, placement: WindowPlacement): State {
-  const layout = state.layouts.find((l) => l.id === layoutId)
-  if (!layout) return state
-  const existing = findOpenWindow(layout, documentId)
-  return existing ? bringToFront(state, existing.id) : openWindow(state, layoutId, documentId, placement)
-}
-
 // ---- Queries -------------------------------------------------------------
 
 /**
@@ -496,21 +629,21 @@ export function activePresetsFor(state: State, highlightId: string): Set<string>
   if (!armed) return new Set()
   return new Set(
     state.highlights
-      .filter((h) => h.documentId === armed.documentId && h.start <= armed.start && h.end >= armed.end)
+      .filter((h) => h.blockId === armed.blockId && h.start <= armed.start && h.end >= armed.end)
       .map((h) => h.presetId),
   )
 }
 
 /** Human-readable description of a link end, for lists. */
 export function describeLinkEnd(state: State, end: LinkEnd, excerptLength = 40): string {
-  if (end.kind === 'document') {
-    const doc = state.documents.find((d) => d.id === end.id)
-    return doc ? documentLabel(doc) : '(missing block)'
+  if (end.kind === 'block') {
+    const block = state.blocks.find((b) => b.id === end.id)
+    return block ? blockLabel(block) : '(missing block)'
   }
   const h = state.highlights.find((x) => x.id === end.id)
-  const doc = h && state.documents.find((d) => d.id === h.documentId)
-  if (!h || !doc) return '(missing highlight)'
-  const raw = doc.text.slice(h.start, h.end).replace(/\s+/g, ' ').trim()
+  const block = h && state.blocks.find((b) => b.id === h.blockId)
+  if (!h || !block) return '(missing highlight)'
+  const raw = block.text.slice(h.start, h.end).replace(/\s+/g, ' ').trim()
   const excerpt = raw.length > excerptLength ? `${raw.slice(0, excerptLength - 1)}…` : raw
-  return `“${excerpt}” (${documentLabel(doc)})`
+  return `“${excerpt}” (${blockLabel(block)})`
 }

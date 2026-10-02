@@ -1,0 +1,55 @@
+import { useRef, type MouseEvent } from 'react'
+import type { NodeProps } from '@xyflow/react'
+import { useStore } from '../store/store'
+import { useUiStore } from '../store/uiStore'
+import { deletePortal, switchWorkspace } from '../model/actions'
+import type { PortalNode as PortalNodeType } from '../lib/layout'
+
+/**
+ * A doorway to another workspace: an oval, galaxy-like swirl showing the target
+ * workspace's name. Click to travel; drag to move; × removes both sides.
+ */
+export function PortalNode({ data }: NodeProps<PortalNodeType>) {
+  const portal = useStore((s) => s.state.portals.find((p) => p.id === data.portalId))
+  const target = useStore((s) => s.state.workspaces.find((w) => w.id === portal?.targetWorkspaceId))
+  const update = useStore((s) => s.update)
+  const downAt = useRef<{ x: number; y: number } | null>(null)
+  if (!portal || !target) return null
+
+  function travel(e: MouseEvent) {
+    // A drag that happens to end here is not a click.
+    const d = downAt.current
+    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return
+    useUiStore.getState().setLinkSource(null)
+    update((s) => switchWorkspace(s, target!.id), { skip: true })
+  }
+
+  return (
+    <div
+      className="group relative h-full w-full cursor-pointer select-none"
+      title={`Go to “${target.name}”`}
+      onMouseDown={(e) => {
+        downAt.current = { x: e.clientX, y: e.clientY }
+      }}
+      onClick={travel}
+    >
+      <div className="portal-swirl absolute inset-0 rounded-[50%] shadow-lg transition-transform group-hover:scale-[1.03]" />
+      <div className="absolute inset-0 flex items-center justify-center px-6">
+        <span className="truncate text-center text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+          {target.name}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="absolute top-1 right-3 rounded-full bg-black/40 px-1.5 text-xs leading-5 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60"
+        title="Remove this portal (both sides)"
+        onClick={(e) => {
+          e.stopPropagation()
+          update((s) => deletePortal(s, portal.id))
+        }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}

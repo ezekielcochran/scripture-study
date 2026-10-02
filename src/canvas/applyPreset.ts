@@ -7,7 +7,7 @@ import { selectionToRange } from '../lib/selection'
 export const WINDOW_TEXT_ATTR = 'data-window-id'
 
 interface Target {
-  documentId: string
+  blockId: string
   start: number
   end: number
 }
@@ -15,7 +15,7 @@ interface Target {
 /** The document range the current text selection covers, if it lies inside a window. */
 function selectionTarget(
   sel: Selection | null,
-  windows: { id: string; documentId: string; range?: { start: number } }[],
+  windows: { id: string; blockId: string; range?: { start: number } }[],
 ): Target | null {
   const anchorEl = sel?.anchorNode instanceof Element ? sel.anchorNode : sel?.anchorNode?.parentElement
   const container = anchorEl?.closest<HTMLElement>(`[${WINDOW_TEXT_ATTR}]`)
@@ -25,7 +25,7 @@ function selectionTarget(
   if (!win || !range) return null
   // The window may show a sub-range; shift back to document offsets.
   const base = win.range?.start ?? 0
-  return { documentId: win.documentId, start: base + range.start, end: base + range.end }
+  return { blockId: win.blockId, start: base + range.start, end: base + range.end }
 }
 
 /**
@@ -40,8 +40,7 @@ export function applyPreset(presetId: string): boolean {
   const armed = linkSource?.kind === 'highlight' ? state.highlights.find((h) => h.id === linkSource.id) : undefined
   // Only the range of the armed highlight, never its id: the toggle may create a new highlight.
   const target =
-    selectionTarget(sel, state.layouts.flatMap((l) => l.windows)) ??
-    (armed && { documentId: armed.documentId, start: armed.start, end: armed.end })
+    selectionTarget(sel, state.windows) ?? (armed && { blockId: armed.blockId, start: armed.start, end: armed.end })
   if (!target) return false
 
   update((s) => toggleHighlight(s, { ...target, presetId }))

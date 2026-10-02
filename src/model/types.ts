@@ -1,12 +1,20 @@
 // The whole app state is one plain JSON object. Keep this shape stable;
 // extend it only by adding optional fields.
 
-export interface Document {
+/** A canvas of its own: blocks, notes, windows, links, and portals to other workspaces. */
+export interface Workspace {
   id: string
+  name: string
+}
+
+/** User-entered text (called a document in older versions). */
+export interface Block {
+  id: string
+  workspaceId: string
   title?: string
   text: string
   createdAt: string // ISO 8601
-  /** Notes are documents shown in translucent yellow windows; absent means a regular document. */
+  /** Notes are blocks shown in translucent yellow windows; absent means a regular block. */
   kind?: 'note'
 }
 
@@ -18,25 +26,27 @@ export interface PresetStyle {
   underline?: boolean
 }
 
+/** Presets belong to a workspace; a new workspace starts with copies of its parent's presets. */
 export interface Preset {
   id: string
+  workspaceId: string
   name: string
   style: PresetStyle
   shortcut?: string
 }
 
-/** A highlight covers the half-open range [start, end) of document.text. */
+/** A highlight covers the half-open range [start, end) of block.text. */
 export interface Highlight {
   id: string
-  documentId: string
+  blockId: string
   start: number
   end: number
   presetId: string
   note?: string
 }
 
-/** One end of a link: a specific highlight, or a whole document. */
-export type LinkEnd = { kind: 'highlight'; id: string } | { kind: 'document'; id: string }
+/** One end of a link: a specific highlight, or a whole block. */
+export type LinkEnd = { kind: 'highlight'; id: string } | { kind: 'block'; id: string }
 
 export interface Link {
   id: string
@@ -50,9 +60,10 @@ export interface Range {
   end: number
 }
 
+/** A view of a block (or a sub-range of it) on its workspace's canvas. */
 export interface Window {
   id: string
-  documentId: string
+  blockId: string
   range?: Range
   x: number
   y: number
@@ -61,16 +72,27 @@ export interface Window {
   z: number
 }
 
-export interface Layout {
+/**
+ * A doorway to another workspace. Portals are two-sided: creating one creates
+ * its counterpart in the target workspace, and both share a pairId.
+ */
+export interface Portal {
   id: string
-  name: string
-  windows: Window[]
+  pairId: string
+  workspaceId: string
+  targetWorkspaceId: string
+  x: number
+  y: number
+  z: number
 }
 
 export interface State {
-  documents: Document[]
+  workspaces: Workspace[]
+  blocks: Block[]
   presets: Preset[]
   highlights: Highlight[]
   links: Link[]
-  layouts: Layout[]
+  windows: Window[]
+  portals: Portal[]
+  currentWorkspaceId: string
 }

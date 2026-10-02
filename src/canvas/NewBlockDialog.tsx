@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
-import { createDocument, createNote, nextWindowPlacement, notePlacement, windowShowingEnd } from '../model/actions'
+import { createBlock, createNote, elementsIn, nextWindowPlacement, notePlacement, windowShowingEnd } from '../model/actions'
 import type { LinkEnd } from '../model/types'
 import { useUiStore } from '../store/uiStore'
 import { Dialog } from './Dialog'
@@ -25,17 +25,17 @@ export function NewBlockDialog({ onClose, note }: Props) {
   function create() {
     if (!text.trim()) return
     const { state, update } = useStore.getState()
-    const layout = state.layouts[0]
+    const ws = state.currentWorkspaceId
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-    const centred = nextWindowPlacement(layout.windows, center)
+    const centred = nextWindowPlacement(elementsIn(state, ws).length, center)
     if (note) {
-      const source = note.about && windowShowingEnd(state, layout, note.about)
+      const source = note.about && windowShowingEnd(state, note.about)
       const placement = source ? notePlacement(source) : centred
-      update((s) => createNote(s, layout.id, { title, text }, placement, note.about))
+      update((s) => createNote(s, ws, { title, text }, placement, note.about))
       // The armed end has been used; disarm it.
       if (note.about) useUiStore.getState().setLinkSource(null)
     } else {
-      update((s) => createDocument(s, layout.id, { title, text }, centred))
+      update((s) => createBlock(s, ws, { title, text }, centred))
     }
     onClose()
   }

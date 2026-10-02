@@ -16,6 +16,16 @@ interface Store {
   redo: () => void
 }
 
+/**
+ * Undo/redo should not teleport the user between workspaces: keep the current
+ * one unless the restored state no longer has it.
+ */
+function keepWorkspace(restored: State, current: State): State {
+  const id = current.currentWorkspaceId
+  if (restored.currentWorkspaceId === id || !restored.workspaces.some((w) => w.id === id)) return restored
+  return { ...restored, currentWorkspaceId: id }
+}
+
 export const useStore = create<Store>((set) => ({
   state: seedState,
   history: emptyHistory(),
@@ -30,11 +40,11 @@ export const useStore = create<Store>((set) => ({
   undo: () =>
     set((s) => {
       const r = undo(s.history, s.state)
-      return r ? { state: r.state, history: r.history } : s
+      return r ? { state: keepWorkspace(r.state, s.state), history: r.history } : s
     }),
   redo: () =>
     set((s) => {
       const r = redo(s.history, s.state)
-      return r ? { state: r.state, history: r.history } : s
+      return r ? { state: keepWorkspace(r.state, s.state), history: r.history } : s
     }),
 }))

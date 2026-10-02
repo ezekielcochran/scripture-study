@@ -1,15 +1,20 @@
 import type { State } from './types'
 
-/** State for a fresh install: the default presets, no documents, one empty layout. */
+export const MAIN_WORKSPACE_ID = 'ws-main'
+
+/** State for a fresh install: one empty workspace called "main" and the default presets. */
 export const seedState: State = {
-  documents: [],
+  workspaces: [{ id: MAIN_WORKSPACE_ID, name: 'main' }],
+  blocks: [],
   presets: [
-    { id: 'preset-highlight', name: 'Highlight', style: { background: '#f7ef5b' }, shortcut: '1' },
-    { id: 'preset-green', name: 'Green', style: { color: '#4b9f58', italic: true }, shortcut: 'g' },
-    { id: 'preset-emphasis', name: 'Emphasis', style: { color: '#b91c1c', bold: true, underline: true }, shortcut: '2' },
-    { id: 'preset-underline', name: 'Underline', style: { underline: true }, shortcut: 'u' },
+    { id: 'preset-highlight', workspaceId: MAIN_WORKSPACE_ID, name: 'Highlight', style: { background: '#f7ef5b' }, shortcut: '1' },
+    { id: 'preset-green', workspaceId: MAIN_WORKSPACE_ID, name: 'Green', style: { color: '#4b9f58', italic: true }, shortcut: 'g' },
+    { id: 'preset-emphasis', workspaceId: MAIN_WORKSPACE_ID, name: 'Emphasis', style: { color: '#b91c1c', bold: true, underline: true }, shortcut: '2' },
+    { id: 'preset-underline', workspaceId: MAIN_WORKSPACE_ID, name: 'Underline', style: { underline: true }, shortcut: 'u' },
   ],
   highlights: [],
   links: [],
-  layouts: [{ id: 'layout-default', name: 'Default', windows: [] }],
+  windows: [],
+  portals: [],
+  currentWorkspaceId: MAIN_WORKSPACE_ID,
 }

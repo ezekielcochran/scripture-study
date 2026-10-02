@@ -6,9 +6,10 @@ import { downloadStateFile, readStateFile } from '../storage'
 import { NewBlockDialog } from './NewBlockDialog'
 import { BlocksDialog } from './BlocksDialog'
 import { LINK_KEEP_ATTR } from './linking'
+import { PortalDialog } from './PortalDialog'
 import { PresetEditor } from './PresetEditor'
 
-type Open = 'new' | 'note' | 'blocks' | 'presets' | null
+type Open = 'new' | 'note' | 'portal' | 'blocks' | 'presets' | null
 
 /** Top-right actions: undo/redo, presets, new block, new note, blocks, export, import. */
 export function Toolbar() {
@@ -75,6 +76,9 @@ export function Toolbar() {
         >
           New note
         </button>
+        <button type="button" className={button} title="Add a portal to another workspace" onClick={() => setOpen('portal')}>
+          New portal
+        </button>
         <button type="button" className={button} onClick={() => setOpen('blocks')}>
           Blocks
         </button>
@@ -94,6 +98,7 @@ export function Toolbar() {
       </Panel>
       {open === 'new' && <NewBlockDialog onClose={() => setOpen(null)} />}
       {open === 'note' && <NewBlockDialog note={{ about: linkSource ?? undefined }} onClose={() => setOpen(null)} />}
+      {open === 'portal' && <PortalDialog onClose={() => setOpen(null)} />}
       {open === 'blocks' && <BlocksDialog onClose={() => setOpen(null)} />}
       {open === 'presets' && <PresetEditor onClose={() => setOpen(null)} />}
     </>

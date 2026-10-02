@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from '../store/store'
-import { presetForShortcut } from '../model/actions'
+import { currentWorkspace, presetForShortcut, presetsIn } from '../model/actions'
 import { applyPreset } from './applyPreset'
 
 export { WINDOW_TEXT_ATTR } from './applyPreset'
@@ -18,7 +18,8 @@ export function useHighlightShortcuts() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')) return
-      const preset = presetForShortcut(useStore.getState().state.presets, e.key)
+      const state = useStore.getState().state
+      const preset = presetForShortcut(presetsIn(state, currentWorkspace(state).id), e.key)
       if (!preset) return
       if (applyPreset(preset.id)) e.preventDefault()
     }

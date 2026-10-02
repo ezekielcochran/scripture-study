@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useStore } from '../store/store'
-import { addPreset, deletePreset, movePreset, shortcutConflict, updatePreset } from '../model/actions'
+import { addPreset, deletePreset, movePreset, presetsIn, shortcutConflict, updatePreset } from '../model/actions'
 import type { Preset, PresetStyle } from '../model/types'
 import { Dialog } from './Dialog'
 
 /** Edit presets in place; every change is applied to the store immediately. */
 export function PresetEditor({ onClose }: { onClose: () => void }) {
-  const presets = useStore((s) => s.state.presets)
+  const workspaceId = useStore((s) => s.state.currentWorkspaceId)
+  const presets = useStore((s) => presetsIn(s.state, s.state.currentWorkspaceId))
   const highlights = useStore((s) => s.state.highlights)
   const update = useStore((s) => s.update)
   const [conflict, setConflict] = useState<string | null>(null)
@@ -130,7 +131,7 @@ export function PresetEditor({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           className="rounded border border-line px-3 py-1 text-sm hover:bg-surface-3"
-          onClick={() => update((s) => addPreset(s, { name: 'New preset', style: { background: '#e0f2fe' } }))}
+          onClick={() => update((s) => addPreset(s, { workspaceId, name: 'New preset', style: { background: '#e0f2fe' } }))}
         >
           Add preset
         </button>

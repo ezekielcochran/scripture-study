@@ -5,8 +5,8 @@ import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
 import { presetStyleToCss, styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { closeWindow, editDocument, isNote } from '../model/actions'
-import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
+import { closeWindow, editBlock, isNote, presetsIn } from '../model/actions'
+import { DRAG_HANDLE_CLASS, blockHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 import { clickLinkEnd, isArmed, LINK_KEEP_ATTR } from './linking'
 import { NewBlockDialog } from './NewBlockDialog'
@@ -40,13 +40,14 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   // Where the pointer went down, to tell a click from a drag-selection on mouseup.
   const downAt = useRef<{ x: number; y: number } | null>(null)
 
-  const win = state.layouts.flatMap((l) => l.windows).find((w) => w.id === data.windowId)
-  const doc = win && state.documents.find((d) => d.id === win.documentId)
+  const win = state.windows.find((w) => w.id === data.windowId)
+  const doc = win && state.blocks.find((b) => b.id === win.blockId)
+  const presets = doc ? presetsIn(state, doc.workspaceId) : []
   const range = win?.range ?? { start: 0, end: doc?.text.length ?? 0 }
   const text = doc ? doc.text.slice(range.start, range.end) : ''
   const highlights = doc
     ? state.highlights
-        .filter((h) => h.documentId === doc.id)
+        .filter((h) => h.blockId === doc.id)
         .map((h) => ({ ...h, start: h.start - range.start, end: h.end - range.start }))
     : []
   const segments = flattenSegments(text, highlights)
@@ -62,9 +63,9 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   function onTextChange(next: string, caret: number) {
     const edit = diffEdit(text, next, caret)
     if (!edit || !doc) return
-    // The textarea shows the window's sub-range, so shift the edit into document offsets.
+    // The textarea shows the window's sub-range, so shift the edit into block offsets.
     // Keystrokes in quick succession form one undo step.
-    update((s) => editDocument(s, doc.id, { ...edit, position: edit.position + range.start }), { key: `edit:${doc.id}` })
+    update((s) => editBlock(s, doc.id, { ...edit, position: edit.position + range.start }), { key: `edit:${doc.id}` })
   }
 
   /** Click a highlight to start a link, click another end to finish it. */
@@ -80,7 +81,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
     clickLinkEnd({ kind: 'highlight', id: ids[ids.length - 1] }) // innermost highlight wins
   }
 
-  const docEnd = { kind: 'document', id: doc.id } as const
+  const docEnd = { kind: 'block', id: doc.id } as const
   const docArmed = isArmed(linkSource, docEnd)
 
   // Which highlights get their handles on which segment: the first segment that contains them.
@@ -104,8 +105,8 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
           isNote(doc) ? 'bg-note-2' : 'bg-surface-2'
         } ${docArmed ? 'outline-2 outline-dashed outline-accent' : ''}`}
       >
-        {/* Document-level link ends attach here, at the header's left edge. */}
-        <HighlightHandles id={documentHandleId(doc.id)} />
+        {/* Block-level link ends attach here, at the header's left edge. */}
+        <HighlightHandles id={blockHandleId(doc.id)} />
         <span className="truncate font-medium">{doc.title ?? ''}</span>
         <span className="flex shrink-0 items-center gap-1">
           <button
@@ -181,7 +182,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
                 data-hl={seg.highlightIds.join(' ')}
                 {...(seg.highlightIds.length ? { [LINK_KEEP_ATTR]: '' } : {})}
                 className={`${fresh.length ? 'relative' : ''} ${isSource ? 'outline-2 outline-dashed outline-accent' : ''} ${seg.highlightIds.length ? 'cursor-pointer' : ''}`}
-                style={presetStyleToCss(styleForPresetIds(seg.presetIds, state.presets))}
+                style={presetStyleToCss(styleForPresetIds(seg.presetIds, presets))}
               >
                 {fresh.map((h) => <HighlightHandles key={h} id={h} />)}
                 {seg.text}

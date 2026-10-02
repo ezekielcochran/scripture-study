@@ -2,7 +2,7 @@ import { Panel } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { presetStyleToCss } from '../lib/style'
-import { activePresetsFor } from '../model/actions'
+import { activePresetsFor, presetsIn } from '../model/actions'
 import { applyPreset } from './applyPreset'
 import { LINK_KEEP_ATTR } from './linking'
 
@@ -11,8 +11,8 @@ import { LINK_KEEP_ATTR } from './linking'
  * preset to the current selection (or the armed highlight), for touch and mouse use.
  */
 export function PresetLegend() {
-  const presets = useStore((s) => s.state.presets)
   const state = useStore((s) => s.state)
+  const presets = presetsIn(state, state.currentWorkspaceId)
   const linkSource = useUiStore((s) => s.linkSource)
   // While a highlight is armed, mark the presets its key would toggle off.
   const active = linkSource?.kind === 'highlight' ? activePresetsFor(state, linkSource.id) : new Set<string>()

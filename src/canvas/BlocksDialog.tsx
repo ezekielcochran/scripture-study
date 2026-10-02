@@ -1,74 +1,92 @@
 import { useReactFlow } from '@xyflow/react'
 import { useStore } from '../store/store'
 import {
-  deleteDocument,
+  blockLabel,
+  blocksIn,
+  deleteBlock,
   deleteLink,
+  deleteWorkspace,
   describeLinkEnd,
-  documentLabel,
+  elementsIn,
   findOpenWindow,
   isNote,
+  linksIn,
   nextWindowPlacement,
-  openDocument,
+  openBlock,
   pruneLinks,
-  setDocumentTitle,
+  renameWorkspace,
+  setBlockTitle,
 } from '../model/actions'
-import type { Document } from '../model/types'
+import type { Block } from '../model/types'
 import { Dialog } from './Dialog'
 
-/** List, retitle, open (or focus), and delete blocks and notes; list and delete links. Edits apply immediately. */
+/**
+ * Manage the current workspace: rename or delete it; list, retitle, open (or
+ * focus), and delete its blocks and notes; list and delete its links.
+ * Edits apply immediately.
+ */
 export function BlocksDialog({ onClose }: { onClose: () => void }) {
   const state = useStore((s) => s.state)
   const update = useStore((s) => s.update)
   const { screenToFlowPosition, setCenter, getZoom } = useReactFlow()
-  const layout = state.layouts[0]
+  const ws = state.currentWorkspaceId
+  const workspace = state.workspaces.find((w) => w.id === ws)!
+  const blocks = blocksIn(state, ws)
+  const links = linksIn(state, ws)
 
-  function show(doc: Document) {
-    const existing = findOpenWindow(layout, doc.id)
+  function show(block: Block) {
+    const existing = findOpenWindow(state, block.id)
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
     // Focusing an already-open window is not worth an undo step; opening a new one is.
-    update((s) => openDocument(s, layout.id, doc.id, nextWindowPlacement(layout.windows, center)), { skip: !!existing })
+    update((s) => openBlock(s, block.id, nextWindowPlacement(elementsIn(s, ws).length, center)), { skip: !!existing })
     if (existing) {
       // Pan to the window that was brought to the front, keeping the current zoom.
-      void setCenter(existing.x + existing.width / 2, existing.y + existing.height / 2, {
-        zoom: getZoom(),
-        duration: 300,
-      })
+      void setCenter(existing.x + existing.width / 2, existing.y + existing.height / 2, { zoom: getZoom(), duration: 300 })
     }
     onClose()
   }
 
-  function remove(doc: Document) {
-    const ids = new Set(state.highlights.filter((h) => h.documentId === doc.id).map((h) => h.id))
-    const links = state.links.length - pruneLinks(state.links, { highlights: ids, documents: new Set([doc.id]) }).length
-    const name = documentLabel(doc)
-    const detail = ids.size || links ? ` ${ids.size} highlight(s) and ${links} link(s) will be removed.` : ''
-    if (window.confirm(`Delete "${name}"?${detail}`)) update((s) => deleteDocument(s, doc.id))
+  function remove(block: Block) {
+    const ids = new Set(state.highlights.filter((h) => h.blockId === block.id).map((h) => h.id))
+    const touched = state.links.length - pruneLinks(state.links, { highlights: ids, blocks: new Set([block.id]) }).length
+    const detail = ids.size || touched ? ` ${ids.size} highlight(s) and ${touched} link(s) will be removed.` : ''
+    if (window.confirm(`Delete "${blockLabel(block)}"?${detail}`)) update((s) => deleteBlock(s, block.id))
+  }
+
+  function removeWorkspace() {
+    const n = blocks.length
+    const portals = state.portals.filter((p) => p.workspaceId === ws || p.targetWorkspaceId === ws).length / 2
+    const msg = `Delete workspace "${workspace.name}" with its ${n} block(s) and ${portals} portal(s)? This cannot be undone from another workspace.`
+    if (window.confirm(msg)) {
+      update((s) => deleteWorkspace(s, ws))
+      onClose()
+    }
   }
 
   const field = 'w-full rounded border border-line bg-surface px-2 py-1 text-ink text-sm focus:border-muted focus:outline-none'
   const button = 'rounded border border-line px-2 py-1 text-sm hover:bg-surface-3'
 
-  function section(docs: Document[], emptyText: string, placeholder: string) {
-    if (docs.length === 0) return <div className="text-sm text-muted">{emptyText}</div>
+  function section(items: Block[], emptyText: string, placeholder: string) {
+    if (items.length === 0) return <div className="text-sm text-muted">{emptyText}</div>
     return (
       <ul className="space-y-2">
-        {docs.map((doc) => {
-          const open = findOpenWindow(layout, doc.id) !== undefined
+        {items.map((block) => {
+          const open = findOpenWindow(state, block.id) !== undefined
           return (
-            <li key={doc.id} className="flex items-center gap-2">
+            <li key={block.id} className="flex items-center gap-2">
               <input
                 className={field}
-                value={doc.title ?? ''}
+                value={block.title ?? ''}
                 placeholder={placeholder}
-                onChange={(e) => update((s) => setDocumentTitle(s, doc.id, e.target.value), { key: `title:${doc.id}` })}
+                onChange={(e) => update((s) => setBlockTitle(s, block.id, e.target.value), { key: `title:${block.id}` })}
               />
-              <span className="w-24 shrink-0 truncate text-xs text-muted" title={doc.text}>
-                {doc.text.length} chars
+              <span className="w-24 shrink-0 truncate text-xs text-muted" title={block.text}>
+                {block.text.length} chars
               </span>
-              <button type="button" className={`${button} w-16 shrink-0`} onClick={() => show(doc)}>
+              <button type="button" className={`${button} w-16 shrink-0`} onClick={() => show(block)}>
                 {open ? 'Show' : 'Open'}
               </button>
-              <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => remove(doc)}>
+              <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => remove(block)}>
                 Delete
               </button>
             </li>
@@ -80,33 +98,39 @@ export function BlocksDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog title="Blocks" onClose={onClose}>
-      {section(
-        state.documents.filter((d) => !isNote(d)),
-        'No blocks yet.',
-        'Untitled',
-      )}
+      <h3 className="mb-1 text-sm font-medium">Workspace</h3>
+      <div className="mb-4 flex items-center gap-2">
+        <input
+          className={field}
+          value={workspace.name}
+          onChange={(e) => update((s) => renameWorkspace(s, ws, e.target.value), { key: `ws-name:${ws}` })}
+        />
+        <button
+          type="button"
+          className={`${button} shrink-0 text-muted disabled:opacity-40`}
+          disabled={state.workspaces.length <= 1}
+          title={state.workspaces.length <= 1 ? 'The last workspace cannot be deleted' : 'Delete this workspace'}
+          onClick={removeWorkspace}
+        >
+          Delete workspace
+        </button>
+      </div>
+      <h3 className="mb-1 text-sm font-medium">Blocks</h3>
+      {section(blocks.filter((b) => !isNote(b)), 'No blocks yet.', 'Untitled')}
       <h3 className="mt-4 mb-1 text-sm font-medium">Notes</h3>
-      {section(
-        state.documents.filter(isNote),
-        'No notes yet. Use a window’s Note button to add one.',
-        'Untitled note',
-      )}
+      {section(blocks.filter(isNote), 'No notes yet. Use a window’s Note button to add one.', 'Untitled note')}
       <h3 className="mt-4 mb-1 text-sm font-medium">Links</h3>
-      {state.links.length === 0 ? (
+      {links.length === 0 ? (
         <div className="text-sm text-muted">No links yet.</div>
       ) : (
         <ul className="max-h-60 space-y-1 overflow-auto text-sm">
-          {state.links.map((l) => (
+          {links.map((l) => (
             <li key={l.id} className="flex items-center gap-2">
               <span className="min-w-0 grow truncate">
                 {describeLinkEnd(state, l.from)} <span className="text-muted">→</span> {describeLinkEnd(state, l.to)}
                 {l.label && <span className="ml-2 text-xs text-muted">[{l.label}]</span>}
               </span>
-              <button
-                type="button"
-                className={`${button} shrink-0 text-muted`}
-                onClick={() => update((s) => deleteLink(s, l.id))}
-              >
+              <button type="button" className={`${button} shrink-0 text-muted`} onClick={() => update((s) => deleteLink(s, l.id))}>
                 Delete
               </button>
             </li>

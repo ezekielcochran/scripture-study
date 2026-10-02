@@ -7,10 +7,12 @@ import {
   historyOptionsForChanges,
   layoutToNodes,
   linksToEdges,
+  type CanvasNode,
   type LinkEdge as LinkEdgeType,
-  type WindowNode as WindowNodeType,
 } from '../lib/layout'
 import { WindowNode } from './WindowNode'
+import { PortalNode } from './PortalNode'
+import { WorkspaceBar } from './WorkspaceBar'
 import { LinkEdge } from './LinkEdge'
 import { PresetLegend } from './PresetLegend'
 import { Toolbar } from './Toolbar'
@@ -21,7 +23,7 @@ import { useUndoShortcuts } from './useUndoShortcuts'
 
 // React Flow requires nodeTypes/edgeTypes to be stable references (defined once,
 // outside the component); otherwise it re-creates every node on each render.
-const nodeTypes = { window: WindowNode }
+const nodeTypes = { window: WindowNode, portal: PortalNode }
 const edgeTypes = { link: LinkEdge }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--link)' } }
 
@@ -42,9 +44,9 @@ export function Canvas() {
   const setLinkSource = useUiStore((s) => s.setLinkSource)
   const setEditingLink = useUiStore((s) => s.setEditingLink)
   const editingLinkId = useUiStore((s) => s.editingLinkId)
-  const layout = state.layouts[0]
-  const nodes = layoutToNodes(layout)
-  const edges = linksToEdges(state, layout, { elevateLinkId: editingLinkId })
+  const ws = state.currentWorkspaceId
+  const nodes = layoutToNodes(state, ws)
+  const edges = linksToEdges(state, ws, { elevateLinkId: editingLinkId })
   useHighlightShortcuts()
   useUndoShortcuts()
 
@@ -71,7 +73,7 @@ export function Canvas() {
   // Nodes are fully controlled: React Flow reports drags, resizes, and clicks as
   // changes, and we fold them into the State so the layout is the only source of truth.
   const onNodesChange = useCallback(
-    (changes: NodeChange<WindowNodeType>[]) =>
+    (changes: NodeChange<CanvasNode>[]) =>
       update((s) => applyNodeChangesToState(s, changes), historyOptionsForChanges(changes)),
     [update],
   )
@@ -98,11 +100,12 @@ export function Canvas() {
     >
       <AdaptiveBackground />
       <PresetLegend />
+      <WorkspaceBar />
       <Toolbar />
       <MobileNotice />
-      {layout.windows.length === 0 && (
+      {nodes.length === 0 && (
         <Panel position="top-center" className="mt-24! text-sm text-muted">
-          No windows open. Use <b>New block</b> or <b>Blocks</b> above.
+          Nothing here yet. Use <b>New block</b>, <b>New note</b>, or <b>New portal</b> above.
         </Panel>
       )}
       {linkSource !== null && (
