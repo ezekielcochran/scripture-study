@@ -55,8 +55,10 @@ export function removeHighlight(state: State, id: string): State {
 }
 
 /**
- * Keyboard toggle: if the range lies within an existing highlight of the same
- * preset, remove that highlight; otherwise add a new one.
+ * Keyboard toggle. If the range lies within an existing highlight of the same
+ * preset: an exact match removes it; a partial range un-highlights just that
+ * range, splitting the highlight (the original id stays on the first remaining
+ * piece so links survive). Otherwise a new highlight is added.
  */
 export function toggleHighlight(state: State, h: NewHighlight): State {
   const doc = state.documents.find((d) => d.id === h.documentId)
@@ -67,7 +69,12 @@ export function toggleHighlight(state: State, h: NewHighlight): State {
   const existing = state.highlights.find(
     (x) => x.documentId === h.documentId && x.presetId === h.presetId && x.start <= start && x.end >= end,
   )
-  return existing ? removeHighlight(state, existing.id) : addHighlight(state, h)
+  if (!existing) return addHighlight(state, h)
+  if (existing.start === start && existing.end === end) return removeHighlight(state, existing.id)
+  const pieces: Highlight[] = []
+  if (existing.start < start) pieces.push({ ...existing, end: start })
+  if (end < existing.end) pieces.push({ ...existing, start: end, id: pieces.length ? newId('hl') : existing.id })
+  return { ...state, highlights: state.highlights.flatMap((x) => (x.id === existing.id ? pieces : [x])) }
 }
 
 /** Find the preset bound to a keyboard shortcut, if any. */

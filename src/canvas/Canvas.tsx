@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { ReactFlow, Background, MarkerType, Panel, type NodeChange } from '@xyflow/react'
+import { ReactFlow, Background, MarkerType, Panel, useViewport, type NodeChange } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import {
@@ -24,6 +24,16 @@ import { useUndoShortcuts } from './useUndoShortcuts'
 const nodeTypes = { window: WindowNode }
 const edgeTypes = { link: LinkEdge }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--link)' } }
+
+/**
+ * Dot grid whose gap doubles as you zoom out, so dots stay at least ~12px apart
+ * on screen. A fixed gap gets extremely dense at low zoom, which is slow on phones.
+ */
+function AdaptiveBackground() {
+  const { zoom } = useViewport()
+  const gap = 20 * 2 ** Math.max(0, Math.ceil(Math.log2(0.6 / zoom)))
+  return <Background bgColor="var(--bg)" color="var(--dots)" gap={gap} size={1.6} />
+}
 
 export function Canvas() {
   const state = useStore((s) => s.state)
@@ -86,7 +96,7 @@ export function Canvas() {
       minZoom={0.2}
       maxZoom={4}
     >
-      <Background bgColor="var(--bg)" color="var(--dots)" gap={20} size={1.6} />
+      <AdaptiveBackground />
       <PresetLegend />
       <Toolbar />
       <MobileNotice />

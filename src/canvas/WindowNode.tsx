@@ -1,17 +1,18 @@
-import { useLayoutEffect, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Handle, NodeResizer, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { useStore } from '../store/store'
 import { useUiStore } from '../store/uiStore'
 import { flattenSegments } from '../lib/segments'
 import { presetStyleToCss, styleForPresetIds } from '../lib/style'
 import { diffEdit } from '../lib/ranges'
-import { closeWindow, documentLabel, editDocument, isNote } from '../model/actions'
+import { closeWindow, editDocument, isNote } from '../model/actions'
 import { DRAG_HANDLE_CLASS, documentHandleId, type WindowNode as WindowNodeType } from '../lib/layout'
 import { WINDOW_TEXT_ATTR } from './useHighlightShortcuts'
 import { clickLinkEnd, isArmed, LINK_KEEP_ATTR } from './linking'
 import { NewDocumentDialog } from './NewDocumentDialog'
+import { useSmartWheel } from './useSmartWheel'
 
-const textClasses = 'nowheel grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
+const textClasses = 'grow p-3 font-serif text-base leading-relaxed whitespace-pre-wrap'
 const headerButton = 'rounded px-1.5 py-0.5 hover:bg-surface-3'
 // Edges attach here. Invisible and not connectable: links are made by clicking highlights.
 const handleStyle: CSSProperties = { width: 1, height: 1, minWidth: 0, minHeight: 0, opacity: 0, border: 0, pointerEvents: 'none' }
@@ -35,6 +36,9 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
   // Edit mode is view state for this window only, so it lives here rather than in the store.
   const [editing, setEditing] = useState(false)
   const [notingAbout, setNotingAbout] = useState(false)
+  const wheelRef = useSmartWheel()
+  // Where the pointer went down, to tell a click from a drag-selection on mouseup.
+  const downAt = useRef<{ x: number; y: number } | null>(null)
 
   const win = state.layouts.flatMap((l) => l.windows).find((w) => w.id === data.windowId)
   const doc = win && state.documents.find((d) => d.id === win.documentId)
@@ -65,7 +69,9 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
 
   /** Click a highlight to start a link, click another end to finish it. */
   function onTextClick(e: MouseEvent<HTMLDivElement>) {
-    // A click that ends a drag-selection is not a link click.
+    // A drag (pointer moved) or a click that ends a text selection is not a link click.
+    const d = downAt.current
+    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return
     if (!window.getSelection()?.isCollapsed) return
     const span = (e.target as HTMLElement).closest<HTMLElement>('span[data-hl]')
     const ids = span?.dataset.hl?.split(' ').filter(Boolean) ?? []
@@ -100,7 +106,7 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
       >
         {/* Document-level link ends attach here, at the header's left edge. */}
         <HighlightHandles id={documentHandleId(doc.id)} />
-        <span className="truncate font-medium">{documentLabel(doc)}</span>
+        <span className="truncate font-medium">{doc.title ?? ''}</span>
         <span className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -142,18 +148,26 @@ export function WindowNode({ id: nodeId, data }: NodeProps<WindowNodeType>) {
             {highlights.filter((h) => h.start < h.end).map((h) => <HighlightHandles key={h.id} id={h.id} />)}
           </div>
           <textarea
+            ref={wheelRef}
             className={`${textClasses} w-full resize-none bg-transparent text-ink outline-none`}
             value={text}
             onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setEditing(false)
+            }}
             autoFocus
           />
         </>
       ) : (
-        // nowheel: React Flow class name that stops canvas zooming inside this element so it
-        // can scroll instead. Only the header drags, so text selection works here.
+        // Only the header drags, so text selection works here. Wheel events scroll the
+        // text when it can scroll and otherwise reach the canvas (see useSmartWheel).
         <div
+          ref={wheelRef}
           {...{ [WINDOW_TEXT_ATTR]: win.id }}
           className={`${textClasses} cursor-text select-text overflow-auto`}
+          onMouseDown={(e) => {
+            downAt.current = { x: e.clientX, y: e.clientY }
+          }}
           onClick={onTextClick}
           onScroll={() => updateNodeInternals(nodeId)}
         >

@@ -30,15 +30,16 @@ export function Dialog({ title, onClose, children }: Props) {
       <div
         role="dialog"
         aria-label={title}
-        className="w-[36rem] max-w-[95vw] rounded border border-line bg-surface p-4 shadow-lg"
+        className="flex max-h-[85vh] w-[36rem] max-w-[95vw] flex-col rounded border border-line bg-surface p-4 shadow-lg"
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h2 className="text-base font-medium">{title}</h2>
           <button type="button" className="rounded px-2 text-muted hover:bg-surface-3" onClick={onClose}>
             ×
           </button>
         </div>
-        {children}
+        {/* min-h-0 lets this flex child shrink so long lists scroll inside the dialog. */}
+        <div className="min-h-0 overflow-y-auto">{children}</div>
       </div>
     </div>
   )

@@ -80,11 +80,14 @@ export function LinkEdge({
   return (
     <>
       {!empty && (
+        // Leads run over window text, so they must not catch the pointer or they would
+        // block text selection; only the span between windows is clickable (for labels).
         <BaseEdge
           id={id}
           path={path}
           markerEnd={part === lastPart ? markerEnd : undefined}
-          style={{ stroke: 'var(--link)', strokeWidth: 1.25 }}
+          interactionWidth={part === 'mid' ? 20 : 0}
+          style={{ stroke: 'var(--link)', strokeWidth: 1.25, pointerEvents: part === 'mid' ? undefined : 'none' }}
         />
       )}
       {part === 'mid' && (label || editing) && (

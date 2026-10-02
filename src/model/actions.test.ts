@@ -506,12 +506,26 @@ describe('removeHighlight / toggleHighlight', () => {
     expect(removeHighlight(withData, 'nope')).toBe(withData)
   })
 
-  test('toggle removes an existing highlight of the same preset covering the range', () => {
+  test('toggle on an exact match removes the highlight and its links', () => {
     const exact = toggleHighlight(withData, { documentId: 'doc', start: 2, end: 8, presetId: 'p1' })
     expect(exact.highlights.map((h) => h.id)).toEqual(['b'])
-    const inside = toggleHighlight(withData, { documentId: 'doc', start: 3, end: 5, presetId: 'p1' })
-    expect(inside.highlights.map((h) => h.id)).toEqual(['b'])
-    expect(inside.links).toEqual([])
+    expect(exact.links).toEqual([])
+  })
+
+  test('toggle on a partial range un-highlights just that range, keeping the id on the first piece', () => {
+    const middle = toggleHighlight(withData, { documentId: 'doc', start: 3, end: 5, presetId: 'p1' })
+    const pieces = middle.highlights.filter((h) => h.presetId === 'p1')
+    expect(pieces.map((h) => [h.start, h.end])).toEqual([
+      [2, 3],
+      [5, 8],
+    ])
+    expect(pieces[0].id).toBe('a')
+    expect(pieces[1].id).not.toBe('a')
+    expect(middle.links).toEqual(withData.links) // link to 'a' survives on the left piece
+    const fromStart = toggleHighlight(withData, { documentId: 'doc', start: 2, end: 4, presetId: 'p1' })
+    expect(fromStart.highlights.find((h) => h.presetId === 'p1')).toMatchObject({ id: 'a', start: 4, end: 8 })
+    const toEnd = toggleHighlight(withData, { documentId: 'doc', start: 6, end: 8, presetId: 'p1' })
+    expect(toEnd.highlights.find((h) => h.presetId === 'p1')).toMatchObject({ id: 'a', start: 2, end: 6 })
   })
 
   test('toggle adds when the preset differs or the range is not covered', () => {
