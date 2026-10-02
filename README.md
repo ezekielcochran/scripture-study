@@ -1,6 +1,6 @@
 # Text Study
 
-A local-first web app for close reading. Enter passages of text as blocks, lay them out side by side on a pannable canvas, highlight substrings with a keystroke, link things together, and keep everything in one JSON file you own. Nothing is sent anywhere. Hosted at [ezekielcochran.com/study](https://ezekielcochran.com/study/).
+A local-first web app for close reading. Enter passages of text as blocks, lay them out side by side on a pannable canvas, highlight substrings with a keystroke, link things together, and keep everything in one JSON file you own. Nothing is sent anywhere. Hosted on [ezekielcochran.com/study](https://people.cs.vt.edu/ecochran/study).
 
 ## Use
 
