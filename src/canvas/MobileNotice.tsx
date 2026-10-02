@@ -25,7 +25,8 @@ export function MobileNotice() {
       className="fixed top-3 left-1/2 z-[100000] flex w-[min(92vw,28rem)] -translate-x-1/2 items-start gap-3 rounded-md border-2 border-warn-line bg-warn-bg px-4 py-3 text-sm text-warn-ink shadow-lg"
     >
       <span className="grow">
-        This app is designed for a desktop browser with a keyboard. It may be hard to use on a phone.
+        This app works best on a desktop with a keyboard. On a touch device, long-press to select text, then tap a
+        preset in the legend to highlight it. Tap highlights to link them.
       </span>
       <button
         type="button"

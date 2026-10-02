@@ -77,3 +77,13 @@ body,
   color: var(--ink);
   color-scheme: light dark;
 }
+
+/* Touch devices: roomier tap targets for window-header and toolbar buttons. */
+@media (pointer: coarse) {
+  .react-flow__node button,
+  .react-flow__panel button,
+  .react-flow__panel select {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+}
