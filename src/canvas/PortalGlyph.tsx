@@ -48,8 +48,9 @@ function armPolygon(phase: number, turns: number, w0: number, w1: number): strin
   return `M ${left.join(' L ')} L ${right.reverse().join(' L ')} Z`
 }
 
-const MAIN_ARMS = [armPolygon(0, 1.45, 3, 22), armPolygon(Math.PI, 1.45, 3, 22)]
-const FAINT_ARMS = [armPolygon(Math.PI / 2, 1.2, 2, 14), armPolygon((3 * Math.PI) / 2, 1.2, 2, 14)]
+// Four bright arms and four fainter ones between them, so the disc reads as one swirl.
+const MAIN_ARMS = [0, 1, 2, 3].map((i) => armPolygon((i * Math.PI) / 2, 1.35, 2, 16))
+const FAINT_ARMS = [0, 1, 2, 3].map((i) => armPolygon((i * Math.PI) / 2 + Math.PI / 4, 1.2, 2, 12))
 
 // Fixed pseudo-random stars so the glyph is stable between renders.
 const STARS = Array.from({ length: 30 }, (_, i) => {
@@ -72,49 +73,57 @@ export function PortalGlyph() {
     <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
       <defs>
         <radialGradient id={g('haze')} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#2e1f6e" stopOpacity="0.95" />
-          <stop offset="60%" stopColor="#1a1246" stopOpacity="0.8" />
+          <stop offset="0%" stopColor="#0d0824" />
+          <stop offset="55%" stopColor="#140d33" stopOpacity="0.95" />
           <stop offset="100%" stopColor="#0b0620" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={g('core')} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="30%" stopColor="#ffe9c4" stopOpacity="0.95" />
-          <stop offset="65%" stopColor="#c084fc" stopOpacity="0.4" />
+          <stop offset="0%" stopColor="#f5d0fe" stopOpacity="0.35" />
+          <stop offset="50%" stopColor="#a855f7" stopOpacity="0.18" />
           <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={g('arm')} cx="50%" cy="50%" r="55%">
-          <stop offset="0%" stopColor="#fde68a" stopOpacity="0.9" />
-          <stop offset="35%" stopColor="#bfdbfe" stopOpacity="0.75" />
+          <stop offset="0%" stopColor="#fde68a" stopOpacity="0.25" />
+          <stop offset="35%" stopColor="#bfdbfe" stopOpacity="0.6" />
           <stop offset="75%" stopColor="#7c3aed" stopOpacity="0.55" />
           <stop offset="100%" stopColor="#4c1d95" stopOpacity="0.15" />
         </radialGradient>
         <filter id={g('soft')} x="-20%" y="-40%" width="140%" height="180%">
-          <feGaussianBlur stdDeviation="1.6" />
+          <feGaussianBlur stdDeviation="2.2" />
         </filter>
         <filter id={g('blur')} x="-20%" y="-40%" width="140%" height="180%">
-          <feGaussianBlur stdDeviation="4" />
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+        <filter id={g('wide')} x="-30%" y="-60%" width="160%" height="220%">
+          <feGaussianBlur stdDeviation="7" />
         </filter>
       </defs>
 
-      {/* Dusty core region: a soft glow smaller than the box, so the arms reach past it. */}
-      <ellipse cx={CX} cy={CY} rx={CX * 0.78} ry={CY * 0.78} fill={`url(#${g('haze')})`} filter={`url(#${g('blur')})`} />
+      {/* Dusty body: a wide soft haze that the arms grow out of, so nothing floats detached. */}
+      <ellipse cx={CX} cy={CY} rx={CX * 0.92} ry={CY * 0.9} fill={`url(#${g('haze')})`} filter={`url(#${g('wide')})`} />
 
-      {/* Spiral arms give the outline; faint ones fill between the bright ones. */}
-      {FAINT_ARMS.map((d, i) => (
-        <path key={`f${i}`} d={d} fill="#6d28d9" opacity="0.45" filter={`url(#${g('blur')})`} />
+      {/* Dark underlay of every arm, heavily blurred, merges them into one silhouette. */}
+      {[...MAIN_ARMS, ...FAINT_ARMS].map((d, i) => (
+        <path key={`u${i}`} d={d} fill="#2e1065" opacity="0.55" filter={`url(#${g('blur')})`} />
       ))}
-      {MAIN_ARMS.map((d, i) => (
-        <g key={i}>
-          <path d={d} fill="#4c1d95" opacity="0.9" filter={`url(#${g('blur')})`} />
-          <path d={d} fill={`url(#${g('arm')})`} filter={`url(#${g('soft')})`} />
-        </g>
-      ))}
+      {/* Bright arm light blends additively where arms overlap. */}
+      <g style={{ mixBlendMode: 'screen' }}>
+        {FAINT_ARMS.map((d, i) => (
+          <path key={`f${i}`} d={d} fill="#7c3aed" opacity="0.45" filter={`url(#${g('blur')})`} />
+        ))}
+        {MAIN_ARMS.map((d, i) => (
+          <path key={i} d={d} fill={`url(#${g('arm')})`} opacity="0.85" filter={`url(#${g('soft')})`} />
+        ))}
+      </g>
+
+      {/* Dark pad behind the name so it stays readable over the arms. */}
+      <ellipse cx={CX} cy={CY} rx="58" ry="26" fill="#0b0620" opacity="0.85" filter={`url(#${g('blur')})`} />
 
       {STARS.map((s, i) => (
         <circle key={i} cx={s.x} cy={s.y} r={s.s} fill="#fff" opacity={s.o} />
       ))}
 
-      <ellipse cx={CX} cy={CY} rx="28" ry="13" fill={`url(#${g('core')})`} />
+      <ellipse cx={CX} cy={CY} rx="40" ry="18" fill={`url(#${g('core')})`} />
     </svg>
   )
 }
