@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useStore } from '../store/store'
-import { addPreset, deletePreset, movePreset, presetsIn, shortcutConflict, updatePreset } from '../model/actions'
+import { addPreset, deletePreset, movePreset, shortcutConflict, updatePreset } from '../model/actions'
 import type { Preset, PresetStyle } from '../model/types'
 import { Dialog } from './Dialog'
 
 /** Edit presets in place; every change is applied to the store immediately. */
 export function PresetEditor({ onClose }: { onClose: () => void }) {
   const workspaceId = useStore((s) => s.state.currentWorkspaceId)
-  const presets = useStore((s) => presetsIn(s.state, s.state.currentWorkspaceId))
+  // Select stable slices only: a selector that builds a new array each call makes
+  // React's store subscription re-render forever.
+  const allPresets = useStore((s) => s.state.presets)
+  const presets = allPresets.filter((p) => p.workspaceId === workspaceId)
   const highlights = useStore((s) => s.state.highlights)
   const update = useStore((s) => s.update)
   const [conflict, setConflict] = useState<string | null>(null)

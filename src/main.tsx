@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { ErrorBoundary } from './canvas/ErrorBoundary'
 import { useStore } from './store/store'
 import { createStorageAdapter, startPersistence } from './storage'
 
@@ -16,7 +17,9 @@ async function boot() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </StrictMode>,
   )
 }
